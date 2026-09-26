@@ -1,0 +1,32 @@
+services:
+  - type: web
+    name: ai-ml-portfolio
+    runtime: node
+    plan: free
+    branch: main
+    buildCommand: npm install && npm run build:db
+    startCommand: npm start
+    autoDeploy: true
+    disk:
+      name: portfolio-data
+      mountPath: /var/data
+      sizeGB: 1
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 10000
+      - key: DATABASE_PATH
+        value: /var/data/portfolio.db
+      - key: JWT_SECRET
+        generateValue: true
+      - key: CSRF_SECRET
+        generateValue: true
+      - key: JWT_EXPIRES_IN
+        value: 7d
+      - key: ADMIN_EMAIL
+        sync: false
+      - key: ADMIN_PASSWORD
+        sync: false
+      - key: SITE_URL
+        sync: false

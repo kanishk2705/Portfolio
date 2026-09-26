@@ -1,0 +1,31 @@
+# Dependencies
+node_modules/
+
+# Environment
+.env
+
+# Database (generated at runtime; schema.sql + seed.js recreate it)
+database/portfolio.db
+database/portfolio.db-journal
+database/portfolio.db-wal
+database/portfolio.db-shm
+
+# Uploaded media (generated at runtime)
+uploads/images/*
+uploads/videos/*
+uploads/documents/*
+!uploads/images/.gitkeep
+!uploads/videos/.gitkeep
+!uploads/documents/.gitkeep
+
+# Logs
+*.log
+npm-debug.log*
+
+# OS / editor
+.DS_Store
+.vscode/
+.idea/
+
+# Generated SEO files (Phase 8 regenerates these on build)
+public/sitemap.xml
