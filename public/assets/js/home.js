@@ -1,24 +1,21 @@
 // assets/js/home.js
 // ---------------------------------------------------------------
 // Renders all dynamic sections of the homepage:
-//   settings (hero/about/contact/footer text + links)
-//   skills grid, featured projects, certifications, timeline, stats
+//   research interests, featured projects, education + experience,
+//   skills grid, timeline, certifications, stats
 // ---------------------------------------------------------------
 'use strict';
 
 (function () {
-  // ---- tiny HTML-escape helper for any DB-sourced text we inject ----
-  function esc(str) {
-    if (str === null || str === undefined) return '';
-    return String(str)
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;')
-      .replace(/"/g, '&quot;')
-      .replace(/'/g, '&#39;');
+  const { esc, projectCard } = window.Portfolio;
+
+  // "line one\nline two" → <ul> of bullets (blank lines ignored)
+  function bulletList(text) {
+    const items = String(text || '').split(/\r?\n/).map((l) => l.replace(/^[\s•*-]+/, '').trim()).filter(Boolean);
+    return items.length ? `<ul class="background-item__list">${items.map((i) => `<li>${esc(i)}</li>`).join('')}</ul>` : '';
   }
 
-  document.querySelector('[data-current-year]').textContent = new Date().getFullYear();
+  const dateRange = (start, end) => [start, end].filter(Boolean).join(' – ');
 
   // ---- Skill category icons (inline SVG, stroke-based, brand-neutral) ----
   const ICONS = {
@@ -36,40 +33,11 @@
     return `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${ICONS[key] || ICONS.ml}</svg>`;
   }
 
-  // ---- Settings: text / html / href bindings ----
-  async function applySettings() {
+  // ---- Settings (text and links are rendered on the server; the
+  // timeline is a JSON setting rendered here) ----
+  async function loadSettings() {
     try {
       const { settings } = await api.getPublicSettings();
-
-      document.querySelectorAll('[data-settings-text]').forEach((el) => {
-        const key = el.getAttribute('data-settings-text');
-        if (settings[key]) el.textContent = settings[key];
-      });
-
-      document.querySelectorAll('[data-settings-html]').forEach((el) => {
-        const key = el.getAttribute('data-settings-html');
-        if (settings[key]) {
-          el.innerHTML = settings[key]
-            .split('\n\n')
-            .filter(Boolean)
-            .map((para) => `<p>${esc(para)}</p>`)
-            .join('');
-        }
-      });
-
-      document.querySelectorAll('[data-settings-href]').forEach((el) => {
-        const key = el.getAttribute('data-settings-href');
-        const value = settings[key];
-        const hideIfEmpty = el.hasAttribute('data-hide-if-empty');
-
-        if (!value) {
-          if (hideIfEmpty) el.style.display = 'none';
-          return;
-        }
-        const prefix = el.getAttribute('data-href-prefix') || '';
-        el.setAttribute('href', prefix + value);
-      });
-
       return settings;
     } catch (err) {
       console.error('Failed to load settings:', err);
@@ -86,47 +54,22 @@
       const { skillCategories } = await api.getSkills();
 
       if (!skillCategories.length) {
-        grid.innerHTML = `<div class="empty-state"><h3>Skills coming soon</h3><p>Add skill categories from the admin dashboard.</p></div>`;
-        return;
+        document.getElementById('skills')?.remove();
+        return 0;
       }
 
-      grid.innerHTML = skillCategories.map((cat) => `
+      // Skills are listed as chips — no self-rated percentages
+      grid.innerHTML = skillCategories.filter((cat) => cat.skills.length).map((cat) => `
         <div class="card card--hover skill-card" data-reveal>
           <div class="skill-card__head">
             <div class="skill-card__icon">${iconSvg(cat.icon)}</div>
             <div class="skill-card__title">${esc(cat.name)}</div>
           </div>
-          <div class="skill-card__list">
-            ${cat.skills.map((s) => `
-              <div class="skill-row">
-                <div class="skill-row__top">
-                  <span class="skill-row__name">${esc(s.name)}</span>
-                  ${s.proficiency ? `<span class="skill-row__pct">${s.proficiency}%</span>` : ''}
-                </div>
-                <div class="skill-row__bar">
-                  <div class="skill-row__fill" style="width:${s.proficiency || 70}%"></div>
-                </div>
-              </div>
-            `).join('')}
+          <div class="skill-card__chips">
+            ${cat.skills.map((s) => `<span class="badge">${esc(s.name)}</span>`).join('')}
           </div>
         </div>
       `).join('');
-
-      // Animate bars in when visible
-      const bars = grid.querySelectorAll('.skill-row__fill');
-      if ('IntersectionObserver' in window) {
-        const obs = new IntersectionObserver((entries) => {
-          entries.forEach((entry) => {
-            if (entry.isIntersecting) {
-              entry.target.classList.add('is-visible');
-              obs.unobserve(entry.target);
-            }
-          });
-        }, { threshold: 0.3 });
-        bars.forEach((b) => obs.observe(b));
-      } else {
-        bars.forEach((b) => b.classList.add('is-visible'));
-      }
 
       observeReveals();
       return skillCategories.length;
@@ -137,33 +80,75 @@
     }
   }
 
-  // ---- Featured projects ----
-  function projectCardHtml(p) {
-    const techChips = (p.technologies || []).slice(0, 4)
-      .map((t) => `<span class="badge">${esc(t.name)}</span>`).join('');
+  // ---- Research interests (settings research.items, JSON) ----
+  function renderResearch(settings) {
+    const grid = document.querySelector('[data-research]');
+    if (!grid) return;
+    let items = [];
+    try { items = JSON.parse(settings['research.items'] || '[]'); } catch { items = []; }
 
-    const thumb = p.thumbnail_path
-      ? `<img src="${esc(p.thumbnail_path)}" alt="${esc(p.title)} thumbnail" loading="lazy">`
-      : `<div class="project-card__thumb-placeholder"><svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.5"><circle cx="12" cy="12" r="9"/><path d="M9 12l2 2 4-4"/></svg></div>`;
-
-    return `
-      <a href="/project/${esc(p.slug)}" class="card card--hover project-card" data-reveal>
-        <div class="project-card__thumb">
-          ${thumb}
-          ${p.category ? `<span class="project-card__category">${esc(p.category)}</span>` : ''}
-        </div>
-        <div class="project-card__body">
-          <h3 class="project-card__title">${esc(p.title)}</h3>
-          <p class="project-card__desc">${esc(p.short_description)}</p>
-          <div class="project-card__tags">${techChips}</div>
-          <div class="project-card__footer">
-            <span class="btn btn--ghost btn--sm" style="padding-left:0;">View Project →</span>
-          </div>
-        </div>
-      </a>
-    `;
+    grid.innerHTML = items.map((item, i) => `
+      <div class="card research-card" data-reveal data-reveal-delay="${Math.min(i, 5)}">
+        <span class="research-card__index">${String(i + 1).padStart(2, '0')}</span>
+        <h3 class="research-card__title">${esc(item.title)}</h3>
+        ${item.description ? `<p class="research-card__desc">${esc(item.description)}</p>` : ''}
+      </div>
+    `).join('');
+    observeReveals();
   }
 
+  // ---- Education + experience ----
+  async function renderBackground() {
+    const wrap = document.querySelector('[data-background]');
+    if (!wrap) return;
+
+    try {
+      const [{ items: education }, { items: experience }] = await Promise.all([api.getEducation(), api.getExperience()]);
+
+      const fill = (col, items, itemHtml) => {
+        const el = wrap.querySelector(col);
+        if (!items.length) return;
+        el.hidden = false;
+        el.querySelector('.background-list').innerHTML = items.map(itemHtml).join('');
+      };
+
+      fill('[data-education]', education, (e) => `
+        <div class="card background-item" data-reveal>
+          <div class="background-item__top">
+            <h4 class="background-item__title">${esc(e.degree)}</h4>
+            ${dateRange(e.start_label, e.end_label) ? `<span class="background-item__date">${esc(dateRange(e.start_label, e.end_label))}</span>` : ''}
+          </div>
+          <div class="background-item__org">${esc(e.institution)}${e.location ? ` · ${esc(e.location)}` : ''}</div>
+          ${e.grade ? `<div class="background-item__meta">${esc(e.grade)}</div>` : ''}
+          ${bulletList(e.highlights)}
+        </div>
+      `);
+
+      fill('[data-experience]', experience, (x) => `
+        <div class="card background-item" data-reveal>
+          <div class="background-item__top">
+            <h4 class="background-item__title">${esc(x.role)}</h4>
+            ${dateRange(x.start_label, x.end_label) ? `<span class="background-item__date">${esc(dateRange(x.start_label, x.end_label))}</span>` : ''}
+          </div>
+          <div class="background-item__org">
+            ${x.organization_url
+              ? `<a href="${esc(x.organization_url)}" target="_blank" rel="noopener noreferrer">${esc(x.organization)}</a>`
+              : esc(x.organization)}${x.location ? ` · ${esc(x.location)}` : ''}
+          </div>
+          ${x.employment_type ? `<span class="badge">${esc(x.employment_type)}</span>` : ''}
+          ${bulletList(x.highlights)}
+        </div>
+      `);
+
+      // One column of content → let it use the full width
+      wrap.classList.toggle('background-grid--single', !education.length || !experience.length);
+      observeReveals();
+    } catch (err) {
+      console.error('Failed to load education/experience:', err);
+    }
+  }
+
+  // ---- Featured projects ----
   async function renderFeaturedProjects() {
     const grid = document.querySelector('[data-featured-projects]');
     if (!grid) return;
@@ -172,11 +157,11 @@
       const { projects } = await api.getFeaturedProjects(6);
 
       if (!projects.length) {
-        grid.innerHTML = `<div class="empty-state" style="grid-column: 1/-1;"><h3>Projects coming soon</h3><p>Featured projects published from the admin dashboard will appear here.</p></div>`;
+        grid.innerHTML = `<div class="empty-state" style="grid-column: 1/-1;"><h3>Projects coming soon</h3><p>Project write-ups are on their way. Meanwhile, see my work on GitHub.</p></div>`;
         return 0;
       }
 
-      grid.innerHTML = projects.map(projectCardHtml).join('');
+      grid.innerHTML = projects.map((p) => projectCard(p, { reveal: true })).join('');
       observeReveals();
       return projects.length;
     } catch (err) {
@@ -195,7 +180,7 @@
       const { certificates } = await api.getCertificates();
 
       if (!certificates.length) {
-        grid.innerHTML = `<div class="empty-state" style="grid-column: 1/-1;"><h3>No certifications yet</h3><p>Add certificates from the admin dashboard.</p></div>`;
+        document.getElementById('certifications')?.remove();
         return 0;
       }
 
@@ -237,7 +222,7 @@
     }
 
     if (!items.length) {
-      wrap.innerHTML = `<div class="empty-state"><h3>Timeline coming soon</h3><p>Milestones will appear here once added.</p></div>`;
+      document.getElementById('timeline')?.remove();
       return;
     }
 
@@ -264,8 +249,9 @@
         const el = document.querySelector(`[data-stat="${key}"] .stat-card__value`);
         if (el) el.textContent = value;
       };
-      setStat('projects', `${projectsTotal}+`);
-      setStat('domains', categories.length);
+      setStat('projects', projectsTotal);
+      // Only domains that actually have published work
+      setStat('domains', categories.filter((c) => c.project_count > 0).length);
       setStat('skills', skillCount);
       setStat('certs', certsCount);
     } catch (err) {
@@ -294,14 +280,16 @@
   // ---- Boot ----
   (async function init() {
     const [settings, skillCount, certsCount] = await Promise.all([
-      applySettings(),
+      loadSettings(),
       renderSkills(),
       renderCertifications(),
+      renderBackground(),
     ]);
 
     const projectsResult = await api.getProjects({ page: 1, limit: 1 }).catch(() => null);
     const projectsTotal = projectsResult?.pagination?.total ?? 0;
 
+    renderResearch(settings);
     await renderFeaturedProjects();
     renderTimeline(settings);
     renderStats(skillCount || 0, projectsTotal, certsCount || 0);

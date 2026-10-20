@@ -477,7 +477,7 @@ body.admin-body {
 
 .admin-search-box input {
   width: 100%;
-  padding: var(--space-2) var(--space-4) var(--space-2) var(--space-9);
+  padding: var(--space-2) var(--space-4) var(--space-2) var(--space-10);
   border-radius: var(--radius-md);
   border: 1px solid var(--border);
   background: var(--bg-elevated);
@@ -552,3 +552,167 @@ body.admin-body {
 
 .toast--error { background: var(--danger); color: #fff; }
 .toast--success { background: var(--success); color: #fff; }
+
+/* ---- Form helpers ---- */
+.form-hint {
+  font-size: var(--text-xs);
+  color: var(--text-tertiary);
+  margin-top: var(--space-2);
+  margin-bottom: var(--space-3);
+  line-height: var(--leading-relaxed, 1.6);
+}
+.form-label__hint { color: var(--text-tertiary); font-weight: 400; }
+
+/* ---- Section header (title + description + action button) ---- */
+.admin-section-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-4);
+  margin-bottom: var(--space-6);
+}
+.admin-section-head h2 { font-size: var(--text-2xl); margin-bottom: var(--space-1); }
+.admin-section-head p  { color: var(--text-secondary); font-size: var(--text-sm); max-width: 60ch; }
+.admin-section-head .btn { flex-shrink: 0; }
+
+/* ---- Modal (sits below the toast so errors stay visible) ---- */
+.admin-modal {
+  position: fixed;
+  inset: 0;
+  background: var(--bg-overlay);
+  z-index: 2000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-6);
+  overflow-y: auto;
+}
+.admin-modal__card { width: 100%; padding: var(--space-8); }
+.admin-modal__title { font-size: var(--text-xl); margin-bottom: var(--space-6); }
+.admin-modal__actions {
+  display: flex;
+  gap: var(--space-3);
+  justify-content: flex-end;
+  margin-top: var(--space-6);
+}
+
+/* ---- Repeatable rows (project timeline, homepage journey) ---- */
+.repeat-list { display: flex; flex-direction: column; gap: var(--space-3); }
+.repeat-list__add { align-self: flex-start; }
+.repeat-list__empty { font-size: var(--text-sm); color: var(--text-tertiary); }
+.repeat-row {
+  display: flex;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--bg-subtle);
+}
+.repeat-row__fields {
+  flex: 1;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-3);
+}
+.repeat-row__field .form-label { font-size: var(--text-xs); margin-bottom: var(--space-1); }
+.repeat-row__field--wide { grid-column: 1 / -1; }
+.repeat-row__field .form-textarea { min-height: 64px; }
+.repeat-row__actions { display: flex; flex-direction: column; gap: var(--space-1); }
+.repeat-row__actions .btn:disabled { opacity: 0.35; cursor: default; }
+.repeat-row__remove { color: var(--danger); }
+
+/* ---- Checkbox list (related projects) ---- */
+.check-list {
+  display: flex;
+  flex-direction: column;
+  max-height: 220px;
+  overflow-y: auto;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+}
+.check-list__item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  font-size: var(--text-sm);
+  cursor: pointer;
+  border-bottom: 1px solid var(--border-subtle);
+}
+.check-list__item:last-child { border-bottom: none; }
+.check-list__item input { width: 16px; height: 16px; accent-color: var(--primary-to); }
+.check-list__item span:first-of-type { flex: 1; }
+
+/* ---- Skills manager ---- */
+.skill-admin-card { padding: var(--space-5) var(--space-6); margin-bottom: var(--space-4); }
+.skill-admin-card__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  margin-bottom: var(--space-4);
+}
+.skill-admin-card__head h3 { font-size: var(--text-lg); }
+.skill-admin-card__meta { font-family: var(--font-mono); font-size: 10px; color: var(--text-tertiary); }
+.skill-admin-card__actions { display: flex; gap: var(--space-2); flex-shrink: 0; }
+.skill-admin-list { display: flex; flex-direction: column; }
+.skill-admin-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-2) 0;
+  border-top: 1px solid var(--border-subtle);
+  font-size: var(--text-sm);
+}
+.skill-admin-row__name { font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+@media (max-width: 640px) {
+  .admin-section-head { flex-direction: column; }
+  .repeat-row__fields { grid-template-columns: 1fr; }
+  .skill-admin-card__head { flex-direction: column; align-items: flex-start; }
+}
+
+/* ---- Full-width theme toggle with a text label (sidebar) ---- */
+.theme-toggle--labeled {
+  width: 100%;
+  border-radius: var(--radius-md);
+  justify-content: flex-start;
+  padding: var(--space-2) var(--space-3) var(--space-2) calc(var(--space-3) + 18px + var(--space-3));
+}
+.theme-toggle--labeled svg { left: var(--space-3); }
+
+/* ---- Sidebar group labels ---- */
+.admin-nav__group {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-tertiary);
+  padding: 0 var(--space-3);
+  margin: var(--space-4) 0 var(--space-2);
+}
+
+/* ---- GitHub import panel (project drawer) ---- */
+.import-panel {
+  padding: var(--space-4);
+  border: 1px dashed var(--border-strong, var(--border));
+  border-radius: var(--radius-md);
+  background: var(--bg-subtle);
+}
+.import-panel__row { display: flex; gap: var(--space-2); }
+.import-panel__row .form-input { flex: 1; }
+.import-panel__notes { margin: var(--space-3) 0 0; padding-left: var(--space-5); font-size: var(--text-xs); color: var(--text-secondary); list-style: disc; }
+.import-panel__notes li + li { margin-top: var(--space-1); }
+
+/* ---- Two inputs side by side (status dates) ---- */
+.form-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: var(--space-3); }
+
+/* ---- Single-file field (CV) ---- */
+.file-field { display: flex; align-items: center; gap: var(--space-3); flex-wrap: wrap; }
+.file-field__current {
+  display: flex; align-items: center; gap: var(--space-2);
+  font-size: var(--text-sm); padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--border); border-radius: var(--radius-md); background: var(--bg-subtle);
+}
+.file-field__current a { font-weight: 600; }

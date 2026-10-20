@@ -170,3 +170,27 @@
   color: var(--text-tertiary);
   padding: 0 var(--space-1);
 }
+
+/* ---------------- STATUS FILTER ---------------- */
+.status-filter {
+  display: inline-flex;
+  gap: var(--space-1);
+  padding: var(--space-1);
+  margin-top: var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-full);
+  background: var(--bg-elevated);
+}
+.status-filter[hidden], .status-filter__btn[hidden] { display: none; }
+.status-filter__btn {
+  font-size: var(--text-sm);
+  font-weight: 500;
+  padding: var(--space-1) var(--space-4);
+  border-radius: var(--radius-full);
+  color: var(--text-secondary);
+  border: none;
+  background: none;
+  cursor: pointer;
+}
+.status-filter__btn:hover { color: var(--text-primary); }
+.status-filter__btn.is-active { background: var(--gradient-primary); color: #fff; }

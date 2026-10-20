@@ -9,10 +9,10 @@
 const path    = require('path');
 const fs      = require('fs');
 const Database = require('better-sqlite3');
+const { migrate } = require('./migrate');
 require('dotenv').config();
 
 const DB_PATH     = process.env.DATABASE_PATH || path.join(__dirname, 'portfolio.db');
-const SCHEMA_PATH = path.join(__dirname, 'schema.sql');
 
 function initDatabase() {
   // Ensure the directory for the DB file exists
@@ -29,12 +29,8 @@ function initDatabase() {
   db.pragma('foreign_keys = ON');
   db.pragma('busy_timeout = 5000');
 
-  const schema = fs.readFileSync(SCHEMA_PATH, 'utf8');
   console.log('[init] Applying schema...');
-
-  // better-sqlite3 doesn't support multiple statements in .prepare(),
-  // so we execute the whole file as a single batch via exec().
-  db.exec(schema);
+  migrate(db);
 
   console.log('[init] Schema applied successfully.');
   db.close();

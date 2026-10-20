@@ -97,6 +97,15 @@ CREATE TABLE IF NOT EXISTS projects (
     is_featured             INTEGER NOT NULL DEFAULT 0 CHECK (is_featured IN (0, 1)),
     display_order           INTEGER NOT NULL DEFAULT 0,
 
+    -- Where the project stands, shown as a badge on cards and the detail page.
+    -- Separate from `status` (draft/published), which controls visibility.
+    project_status          TEXT NOT NULL DEFAULT 'completed'
+                            CHECK (project_status IN ('completed', 'ongoing', 'planned')),
+    started_on              TEXT,                  -- "YYYY-MM"
+    completed_on            TEXT,                  -- "YYYY-MM"
+    my_role                 TEXT,                  -- rich text: what *you* did
+    key_learnings           TEXT,                  -- rich text: what you learned
+
     published_at            TEXT,
     created_at              TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at              TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
@@ -268,6 +277,38 @@ CREATE TABLE IF NOT EXISTS certificates (
 );
 
 CREATE INDEX IF NOT EXISTS idx_certificates_sort ON certificates (sort_order);
+
+-- ------------------------------------------------------------
+-- EDUCATION — degrees, shown in the homepage Background section
+-- Dates are free text ("Aug 2022", "Expected May 2026").
+-- ------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS education (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    institution     TEXT NOT NULL,
+    degree          TEXT NOT NULL,          -- "B.E. Computer Science and Engineering"
+    location        TEXT,
+    start_label     TEXT,
+    end_label       TEXT,
+    grade           TEXT,                   -- "CGPA 8.4 / 10"
+    highlights      TEXT,                   -- one item per line → bullet list
+    sort_order      INTEGER NOT NULL DEFAULT 0
+);
+
+-- ------------------------------------------------------------
+-- EXPERIENCE — internships, jobs, research positions
+-- ------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS experience (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    role            TEXT NOT NULL,
+    organization    TEXT NOT NULL,
+    organization_url TEXT,
+    location        TEXT,
+    employment_type TEXT,                   -- Internship / Research / Full-time / …
+    start_label     TEXT,
+    end_label       TEXT,                   -- "Present" for current roles
+    highlights      TEXT,                   -- one item per line → bullet list
+    sort_order      INTEGER NOT NULL DEFAULT 0
+);
 
 -- ------------------------------------------------------------
 -- SETTINGS — flexible key/value store for site-wide editable

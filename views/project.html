@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+{{> head }}
+<link rel="stylesheet" href="/assets/css/project.css">
+</head>
+<body>
+
+{{> nav }}
+
+<main id="main">
+
+  <!-- ============ LOADING STATE ============ -->
+  <div id="loading-state" class="container" style="padding-top: calc(var(--nav-height) + var(--space-16));">
+    <div class="card skeleton" style="height: 60px; max-width: 600px; margin-bottom: 24px;"></div>
+    <div class="card skeleton" style="height: 200px; margin-bottom: 24px;"></div>
+    <div class="card skeleton" style="height: 400px;"></div>
+  </div>
+
+  <!-- ============ NOT FOUND STATE ============ -->
+  <div id="not-found-state" class="project-not-found" style="display:none;">
+    <div class="container">
+      <h1>Project not found</h1>
+      <p>This project may have been moved or unpublished.</p>
+      <a href="/projects" class="btn btn--primary">← Back to all projects</a>
+    </div>
+  </div>
+
+  <!-- ============ PROJECT CONTENT (populated by project.js) ============ -->
+  <div id="project-root" style="display:none;">
+
+    <!-- ---- Banner ---- -->
+    <section class="project-banner">
+      <div class="project-banner__bg" id="banner-bg"></div>
+      <div class="container">
+        <div class="breadcrumb">
+          <a href="/">Home</a> <span>/</span> <a href="/projects">Projects</a> <span>/</span> <span id="breadcrumb-title"></span>
+        </div>
+
+        <div class="project-banner__badges">
+          <div class="project-banner__category badge badge--gradient" id="banner-category"></div>
+          <span id="banner-status"></span>
+        </div>
+
+        <h1 id="banner-title"></h1>
+        <p class="project-banner__desc" id="banner-desc"></p>
+
+        <div class="project-banner__actions" id="banner-actions"></div>
+        <div class="project-banner__tags" id="banner-tags"></div>
+
+        <div class="project-banner__hero-img" id="banner-hero-img" style="display:none;">
+          <img id="banner-hero-img-el" src="" alt="">
+        </div>
+      </div>
+    </section>
+
+    <!-- ---- Layout: content + sidebar ---- -->
+    <section class="section" style="padding-top: var(--space-8);">
+      <div class="container">
+        <div class="project-layout">
+
+          <!-- Main content column -->
+          <div class="project-content" id="project-content">
+            <!-- content blocks injected by project.js, in this order when present:
+                 Overview, Problem Statement, Dataset Info, Methodology,
+                 Architecture/Workflow Diagrams, Implementation Details,
+                 Results + Metrics, Gallery, Videos, Timeline, Future Improvements, Documents -->
+          </div>
+
+          <!-- Sidebar -->
+          <aside class="project-sidebar" id="project-sidebar">
+            <!-- sidebar cards injected by project.js -->
+          </aside>
+
+        </div>
+      </div>
+    </section>
+
+    <!-- ---- Related projects ---- -->
+    <section class="section related-section" id="related-section" style="display:none;">
+      <div class="container">
+        <div class="section-head">
+          <div class="eyebrow">Keep Exploring</div>
+          <h2>Related Projects</h2>
+        </div>
+        <div class="project-grid" id="related-grid"></div>
+      </div>
+    </section>
+
+  </div>
+
+</main>
+
+<!-- ============ LIGHTBOX ============ -->
+<div class="lightbox" id="lightbox">
+  <button class="lightbox__close" id="lightbox-close" aria-label="Close image">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+  </button>
+  <img id="lightbox-img" src="" alt="">
+</div>
+
+{{> footer }}
+
+<script src="/assets/js/project.js"></script>
+</body>
+</html>

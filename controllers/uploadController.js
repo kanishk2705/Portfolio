@@ -1,9 +1,8 @@
 // controllers/uploadController.js
 'use strict';
 
-const path    = require('path');
-const fs      = require('fs');
 const Project = require('../models/Project');
+const { getDb } = require('../config/db');
 const { publicPath } = require('../utils/fileNaming');
 
 const uploadController = {
@@ -20,14 +19,14 @@ const uploadController = {
       // If linked to a project, decide what to do with it
       if (projectId) {
         const id = parseInt(projectId, 10);
-        if (type === 'thumbnail') {
-          Project.update(id, { thumbnail_path: filePath, ...Project.findById(id) });
-        } else if (type === 'banner') {
-          Project.update(id, { banner_path: filePath, ...Project.findById(id) });
-        } else if (type === 'architecture') {
-          Project.update(id, { architecture_diagram_path: filePath, ...Project.findById(id) });
-        } else if (type === 'workflow') {
-          Project.update(id, { workflow_diagram_path: filePath, ...Project.findById(id) });
+        const column = {
+          thumbnail:    'thumbnail_path',
+          banner:       'banner_path',
+          architecture: 'architecture_diagram_path',
+          workflow:     'workflow_diagram_path',
+        }[type];
+        if (column) {
+          getDb().prepare(`UPDATE projects SET ${column} = ? WHERE id = ?`).run(filePath, id);
         } else {
           // gallery image
           Project.addImage(id, filePath, altText || '', caption || '');

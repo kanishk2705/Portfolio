@@ -49,7 +49,8 @@ function _hydrate(project) {
 
   // Related projects — curated first, fallback to same-category
   const curated = db.prepare(`
-    SELECT p.id, p.slug, p.title, p.short_description, p.thumbnail_path, c.name AS category
+    SELECT p.id, p.slug, p.title, p.short_description, p.thumbnail_path,
+           p.project_status, p.started_on, p.completed_on, c.name AS category
     FROM projects p
     JOIN related_projects rp ON rp.related_project_id = p.id
     LEFT JOIN categories c ON c.id = p.category_id
@@ -61,7 +62,8 @@ function _hydrate(project) {
     project.related = curated;
   } else {
     project.related = db.prepare(`
-      SELECT p.id, p.slug, p.title, p.short_description, p.thumbnail_path, c.name AS category
+      SELECT p.id, p.slug, p.title, p.short_description, p.thumbnail_path,
+           p.project_status, p.started_on, p.completed_on, c.name AS category
       FROM projects p
       LEFT JOIN categories c ON c.id = p.category_id
       WHERE p.category_id = ? AND p.id != ? AND p.status = 'published'
@@ -77,7 +79,7 @@ function _hydrate(project) {
 
 const Project = {
   /** List published projects with optional search + category filter + pagination */
-  listPublished({ categorySlug, search, page = 1, limit = 12 } = {}) {
+  listPublished({ categorySlug, projectStatus, search, page = 1, limit = 12 } = {}) {
     const db = getDb();
     const offset = (page - 1) * limit;
     const conditions = ["p.status = 'published'"];
@@ -86,6 +88,10 @@ const Project = {
     if (categorySlug && categorySlug !== 'all') {
       conditions.push('c.slug = ?');
       params.push(categorySlug);
+    }
+    if (['completed', 'ongoing', 'planned'].includes(projectStatus)) {
+      conditions.push('p.project_status = ?');
+      params.push(projectStatus);
     }
     if (search) {
       conditions.push(`(
@@ -116,6 +122,7 @@ const Project = {
       SELECT p.id, p.slug, p.title, p.short_description,
              p.thumbnail_path, p.is_featured, p.display_order,
              p.published_at, p.github_url, p.demo_url,
+             p.project_status, p.started_on, p.completed_on,
              c.name AS category, c.slug AS category_slug
       FROM projects p
       LEFT JOIN categories c ON c.id = p.category_id
@@ -152,6 +159,7 @@ const Project = {
     const rows = db.prepare(`
       SELECT p.id, p.slug, p.title, p.short_description,
              p.thumbnail_path, p.published_at, p.github_url, p.demo_url,
+             p.project_status, p.started_on, p.completed_on,
              c.name AS category, c.slug AS category_slug
       FROM projects p
       LEFT JOIN categories c ON c.id = p.category_id
@@ -202,7 +210,7 @@ const Project = {
     const total = db.prepare(`SELECT COUNT(*) AS n FROM projects p ${where}`).get(...params).n;
     const rows  = db.prepare(`
       SELECT p.id, p.slug, p.title, p.short_description,
-             p.status, p.is_featured, p.display_order,
+             p.status, p.is_featured, p.display_order, p.project_status,
              p.thumbnail_path, p.published_at, p.created_at, p.updated_at,
              c.name AS category, c.slug AS category_slug
       FROM projects p
@@ -237,7 +245,8 @@ const Project = {
         architecture_diagram_path, workflow_diagram_path,
         thumbnail_path, banner_path,
         github_url, research_paper_url, demo_url,
-        status, is_featured, display_order, published_at
+        status, is_featured, display_order, published_at,
+        project_status, started_on, completed_on, my_role, key_learnings
       ) VALUES (
         @slug, @title, @category_id,
         @short_description, @overview, @problem_statement, @dataset_info,
@@ -245,7 +254,8 @@ const Project = {
         @architecture_diagram_path, @workflow_diagram_path,
         @thumbnail_path, @banner_path,
         @github_url, @research_paper_url, @demo_url,
-        @status, @is_featured, @display_order, @published_at
+        @status, @is_featured, @display_order, @published_at,
+        @project_status, @started_on, @completed_on, @my_role, @key_learnings
       )
     `).run(data);
     return result.lastInsertRowid;
@@ -266,7 +276,9 @@ const Project = {
         github_url = @github_url, research_paper_url = @research_paper_url,
         demo_url = @demo_url, status = @status,
         is_featured = @is_featured, display_order = @display_order,
-        published_at = @published_at
+        published_at = @published_at,
+        project_status = @project_status, started_on = @started_on,
+        completed_on = @completed_on, my_role = @my_role, key_learnings = @key_learnings
       WHERE id = @id
     `).run({ ...data, id });
   },
@@ -306,12 +318,73 @@ const Project = {
 
   setRelated(projectId, relatedIds) {
     const db = getDb();
-    db.prepare('DELETE FROM related_projects WHERE project_id = ?').run(projectId);
+    // Links are stored in both directions, so clear both before re-linking
+    db.prepare('DELETE FROM related_projects WHERE project_id = ? OR related_project_id = ?').run(projectId, projectId);
     const ins = db.prepare('INSERT OR IGNORE INTO related_projects VALUES (?, ?)');
+    const exists = db.prepare('SELECT 1 FROM projects WHERE id = ?');
     for (const rid of relatedIds) {
+      if (rid === projectId || !exists.get(rid)) continue;
       ins.run(projectId, rid);
       ins.run(rid, projectId);  // symmetric
     }
+  },
+
+  /** Ids of projects curated as related to this one (admin form) */
+  relatedIds(projectId) {
+    return getDb().prepare('SELECT related_project_id AS id FROM related_projects WHERE project_id = ?')
+      .all(projectId).map((r) => r.id);
+  },
+
+  /** Every uploaded-file path a project references (for cleanup) */
+  filePaths(projectId) {
+    const db = getDb();
+    const p = db.prepare(`
+      SELECT thumbnail_path, banner_path, architecture_diagram_path, workflow_diagram_path
+      FROM projects WHERE id = ?
+    `).get(projectId) || {};
+    return [
+      ...Object.values(p),
+      ...db.prepare('SELECT file_path FROM project_images WHERE project_id = ?').all(projectId).map((r) => r.file_path),
+      ...db.prepare('SELECT file_path FROM project_videos WHERE project_id = ?').all(projectId).map((r) => r.file_path),
+      ...db.prepare('SELECT file_path FROM project_documents WHERE project_id = ?').all(projectId).map((r) => r.file_path),
+    ].filter(Boolean);
+  },
+
+  // ── Media lists (replaced wholesale from the admin form) ────
+
+  replaceImages(projectId, images) {
+    const db = getDb();
+    db.prepare('DELETE FROM project_images WHERE project_id = ?').run(projectId);
+    const ins = db.prepare(`
+      INSERT INTO project_images (project_id, file_path, alt_text, caption, sort_order)
+      VALUES (?, ?, ?, ?, ?)
+    `);
+    images.forEach((img, i) => ins.run(projectId, img.file_path, img.alt_text || null, img.caption || null, i));
+  },
+
+  replaceVideos(projectId, videos) {
+    const db = getDb();
+    db.prepare('DELETE FROM project_videos WHERE project_id = ?').run(projectId);
+    const ins = db.prepare(`
+      INSERT INTO project_videos (project_id, source_type, file_path, external_url, title, sort_order)
+      VALUES (?, ?, ?, ?, ?, ?)
+    `);
+    videos.forEach((v, i) => ins.run(
+      projectId, v.source_type,
+      v.source_type === 'upload' ? v.file_path : null,
+      v.source_type === 'external' ? v.external_url : null,
+      v.title || null, i,
+    ));
+  },
+
+  replaceDocuments(projectId, docs) {
+    const db = getDb();
+    db.prepare('DELETE FROM project_documents WHERE project_id = ?').run(projectId);
+    const ins = db.prepare(`
+      INSERT INTO project_documents (project_id, file_path, label, sort_order)
+      VALUES (?, ?, ?, ?)
+    `);
+    docs.forEach((d, i) => ins.run(projectId, d.file_path, d.label || 'Document', i));
   },
 
   // ── Metrics / timeline ─────────────────────────────────────
@@ -333,7 +406,7 @@ const Project = {
       INSERT INTO project_timeline_events (project_id, title, description, date_label, sort_order)
       VALUES (?, ?, ?, ?, ?)
     `);
-    events.forEach((e, i) => ins.run(projectId, e.title, e.description, e.date_label, i));
+    events.forEach((e, i) => ins.run(projectId, e.title, e.description || null, e.date_label || null, i));
   },
 
   // ── Media records ──────────────────────────────────────────

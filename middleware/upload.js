@@ -7,7 +7,7 @@ const multer = require('multer');
 const env    = require('../config/env');
 const { uniqueFilename } = require('../utils/fileNaming');
 
-const UPLOAD_ROOT = path.join(process.cwd(), 'uploads');
+const UPLOAD_ROOT = path.resolve(env.UPLOADS_PATH);
 
 // Allowed MIME types per upload category
 const ALLOWED = {

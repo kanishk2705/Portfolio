@@ -1,0 +1,46 @@
+<a href="#main" class="skip-link">Skip to content</a>
+
+<!-- ============ NAV ============ -->
+<header class="nav">
+  <div class="nav__inner">
+    <a href="/" class="nav__logo">
+      <span class="nav__logo-mark">{{ site.initial }}</span>
+      {{ site.name }}
+    </a>
+
+    <nav class="nav__links" aria-label="Primary">
+      <a href="/" class="nav__link">Home</a>
+      <a href="/projects" class="nav__link">Projects</a>
+      <a href="/#about" class="nav__link">About</a>
+      {{#if has.research}}<a href="/#research" class="nav__link">Research</a>{{/if}}
+      {{#if has.background}}<a href="/#background" class="nav__link">Background</a>{{/if}}
+      <a href="/#contact" class="nav__link">Contact</a>
+    </nav>
+
+    <div class="nav__actions">
+      {{#if cv.url}}
+      <a href="{{ cv.url | attr }}" class="btn btn--secondary btn--sm nav__cv" target="_blank" rel="noopener">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        CV
+      </a>
+      {{/if}}
+      <button class="theme-toggle" data-theme-toggle aria-label="Toggle dark mode">
+        <svg class="icon-sun" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/></svg>
+        <svg class="icon-moon" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+      </button>
+      <button class="nav__menu-toggle" data-menu-toggle aria-label="Open menu" aria-expanded="false">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 6h18M3 12h18M3 18h18"/></svg>
+      </button>
+    </div>
+  </div>
+</header>
+
+<div class="mobile-menu" data-mobile-menu>
+  <a href="/" class="mobile-menu__link">Home</a>
+  <a href="/projects" class="mobile-menu__link">Projects</a>
+  <a href="/#about" class="mobile-menu__link">About</a>
+  {{#if has.research}}<a href="/#research" class="mobile-menu__link">Research</a>{{/if}}
+  {{#if has.background}}<a href="/#background" class="mobile-menu__link">Background</a>{{/if}}
+  <a href="/#contact" class="mobile-menu__link">Contact</a>
+  {{#if cv.url}}<a href="{{ cv.url | attr }}" class="mobile-menu__link" target="_blank" rel="noopener">Download CV</a>{{/if}}
+</div>

@@ -9,6 +9,7 @@ database/portfolio.db
 database/portfolio.db-journal
 database/portfolio.db-wal
 database/portfolio.db-shm
+database/*.backup-*.db
 
 # Uploaded media (generated at runtime)
 uploads/images/*

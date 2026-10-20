@@ -10,13 +10,14 @@
 (function () {
   const STORAGE_KEY = 'portfolio-theme';
 
+  // Storage can throw when blocked (private windows, strict privacy settings)
   function getStoredTheme() {
-    return localStorage.getItem(STORAGE_KEY);
+    try { return localStorage.getItem(STORAGE_KEY); } catch { return null; }
   }
 
   function setTheme(theme) {
     document.documentElement.setAttribute('data-theme', theme);
-    localStorage.setItem(STORAGE_KEY, theme);
+    try { localStorage.setItem(STORAGE_KEY, theme); } catch { /* theme still applies for this page */ }
     // Keep the browser UI (e.g. mobile status bar) in sync
     const meta = document.querySelector('meta[name="theme-color"]');
     if (meta) meta.setAttribute('content', theme === 'dark' ? '#0a0e16' : '#ffffff');

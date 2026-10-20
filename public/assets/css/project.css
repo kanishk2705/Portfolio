@@ -348,3 +348,12 @@
 
 .project-not-found h1 { font-size: var(--text-4xl); margin-bottom: var(--space-4); }
 .project-not-found p { color: var(--text-secondary); margin-bottom: var(--space-8); }
+
+.project-banner__badges {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+  margin-bottom: var(--space-4);
+}
+.project-banner__badges .project-banner__category { margin-bottom: 0; }

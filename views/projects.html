@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+{{> head }}
+<link rel="stylesheet" href="/assets/css/projects.css">
+</head>
+<body>
+
+{{> nav }}
+
+<main id="main">
+
+  <!-- ============ PAGE HERO ============ -->
+  <section class="projects-hero">
+    <div class="container">
+      <div class="eyebrow">Project Archive</div>
+      <h1 data-reveal>All Projects</h1>
+      <p data-reveal data-reveal-delay="1">
+        Completed, ongoing and planned work across AI, machine learning and data — searchable and filterable.
+      </p>
+    </div>
+  </section>
+
+  <!-- ============ TOOLBAR ============ -->
+  <div class="projects-toolbar">
+    <div class="container">
+      <div class="search-box">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        <input type="text" id="search-input" placeholder="Search projects, technologies, tags…" aria-label="Search projects">
+      </div>
+
+      <div class="filter-chips" id="filter-chips" role="tablist" aria-label="Filter by category">
+        <button class="filter-chip is-active" data-category="all" role="tab" aria-selected="true">All</button>
+        <!-- additional category chips injected by projects.js -->
+      </div>
+
+      <div class="status-filter" id="status-filter" role="group" aria-label="Filter by project status" hidden>
+        <button class="status-filter__btn is-active" data-status="all" aria-pressed="true">All</button>
+        <button class="status-filter__btn" data-status="completed" aria-pressed="false">Completed</button>
+        <button class="status-filter__btn" data-status="ongoing" aria-pressed="false">Ongoing</button>
+        <button class="status-filter__btn" data-status="planned" aria-pressed="false">Planned</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ RESULTS ============ -->
+  <section class="projects-results">
+    <div class="container">
+      <div class="results-meta" id="results-meta" style="display:none;">
+        <span><strong id="results-count">0</strong> projects found</span>
+      </div>
+
+      <div class="project-grid" id="project-grid">
+        <div class="card skeleton" style="height: 380px;"></div>
+        <div class="card skeleton" style="height: 380px;"></div>
+        <div class="card skeleton" style="height: 380px;"></div>
+        <div class="card skeleton" style="height: 380px;"></div>
+        <div class="card skeleton" style="height: 380px;"></div>
+        <div class="card skeleton" style="height: 380px;"></div>
+      </div>
+
+      <div class="pagination" id="pagination" style="display:none;"></div>
+    </div>
+  </section>
+
+</main>
+
+{{> footer }}
+
+<script src="/assets/js/projects.js"></script>
+</body>
+</html>

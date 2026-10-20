@@ -1,53 +1,68 @@
-# AI/ML Portfolio Platform
+# Kanishk — AI/ML Portfolio
 
-A self-hosted, no-code-to-update portfolio and project showcase platform, built with
-vanilla HTML/CSS/JS on the frontend and Node.js + Express + SQLite on the backend.
+My personal portfolio and project showcase: a self-hosted site with a no-code admin
+panel, so new projects, skills, milestones and certifications can be added without
+touching code. Built with vanilla HTML/CSS/JS on the frontend and Node.js + Express +
+SQLite on the backend.
 
-> Status: under construction, built in phases. This README grows with each phase.
+## Features
 
-## Phase log
+**Public site**
+- Home: hero, about + live stats, research interests, featured projects, education &
+  experience, skills, journey timeline, certifications, contact. Sections with no
+  content yet are hidden automatically.
+- Projects archive with search, category and status (completed / ongoing / planned)
+  filters and pagination
+- Project detail pages: status and dates, rich write-up sections (including "My Role"
+  and "What I Learned"), metrics, diagrams, gallery + lightbox, videos
+  (upload / YouTube / Vimeo), documents, build timeline, related projects
+- CV download at a stable `/cv.pdf` address
+- Light/dark theme, responsive layout, scroll animations
+- Server-rendered SEO: titles, descriptions, canonical URLs, Open Graph / Twitter cards,
+  JSON-LD, `sitemap.xml`, `robots.txt`
 
-- [x] Phase 1 — Folder structure & project scaffolding
-- [x] Phase 2 — Database design (schema.sql, seed script)
-- [x] Phase 3 — Backend (routes, controllers, models, server.js)
-- [x] Phase 4 — Frontend layout (Home, Projects, Project Detail)
-- [x] Phase 5 — Admin dashboard (login, stats, projects table, drawer, categories, certs, settings)
-- [x] Phase 6 — Project management (rich-text editor, drag-and-drop uploads, tabbed drawer)
-- [x] Phase 7 — Security hardening (JWT cookie auth, CSRF, rate limiting, input validation, Helmet)
-- [x] Phase 8 — SEO + Render deployment (sitemap.xml, JSON-LD, robots.txt, DEPLOY.md)
+**Admin panel** (`/admin`)
+- Projects: create / edit / publish / feature, status + start/completion month,
+  rich-text editor, drag-and-drop media, **Import from GitHub** (fills the form from
+  a public repo's README for review)
+- Profile: research interests, education, experience, homepage journey
+- Categories, certifications, skills (cards + individual skills)
+- Site settings: name, hero, about, contact, CV upload, link-preview image, footer
+
+**Security**: JWT httpOnly cookie auth, CSRF double-submit, rate limiting, input
+validation, HTML sanitising, Helmet security headers.
 
 ## Stack
 
-- **Frontend:** HTML5, CSS3 (custom design-token system, light/dark theme), vanilla JS
-- **Backend:** Node.js, Express
+- **Frontend:** HTML5, CSS3 (design-token system, light/dark theme), vanilla JS
+- **Backend:** Node.js 24, Express
 - **Database:** SQLite (`better-sqlite3`)
-- **Auth:** JWT signed token, delivered as an httpOnly cookie + CSRF double-submit cookie
-- **Deployment:** Render (see `render.yaml`)
+- **Deployment:** Render (see [DEPLOY.md](DEPLOY.md))
 
-## Local setup (will work fully starting Phase 3)
+## Local setup
 
 ```bash
 npm install
 cp .env.example .env        # then fill in real secrets
 npm run build:db            # creates database/portfolio.db from schema.sql
-npm run seed                # creates your admin login from .env ADMIN_EMAIL/ADMIN_PASSWORD
-npm run dev                 # starts the server with nodemon on PORT (default 3000)
+npm run seed                # admin login + default content (safe to re-run)
+npm run dev                 # http://localhost:3000, admin at /admin/login
 ```
-
-## A note on SQLite + Render
-
-Render's free web service tier has an **ephemeral filesystem** — anything written to disk
-(including a SQLite file) is wiped on every deploy or restart. To keep your projects and
-uploaded media permanently, you'll need Render's **persistent disk** add-on, which requires
-a paid instance type. `render.yaml` is already wired for this (see the `disk:` block). This
-gets covered in detail in Phase 8 — flagging it now so it's not a surprise at deploy time.
 
 ## Project structure
 
-See the folder tree shared in Phase 1 of the build conversation. Briefly:
+- `views/` — public page templates, filled with live settings + SEO on the server
+  - `views/partials/` — shared `<head>`, nav and footer used by every page
+- `public/` — static assets (CSS, JS, images) and the admin pages
+- `routes/` + `controllers/` + `models/` — backend API, organised by resource
+- `middleware/` — auth, CSRF, validation, uploads, rate limiting
+- `utils/` — template renderer, SEO helpers, upload-file helpers, sanitiser
+- `database/` — schema, migrations (applied automatically on startup) and seed data
+- `uploads/` — uploaded media (git-ignored; set `UPLOADS_PATH` to move it)
 
-- `database/` — schema and seed data
-- `routes/` + `controllers/` + `models/` — backend API, organized by resource
-- `middleware/` — auth, CSRF, upload handling, rate limiting
-- `public/` — every static asset actually served to visitors (HTML/CSS/JS/images)
-- `uploads/` — user-uploaded media, organized by type, git-ignored
+### Adding a public page
+
+1. Create `views/<page>.html` using `{{> head }}`, `{{> nav }}` and `{{> footer }}`.
+2. Add a route in `server.js` that calls `renderPage('<page>.html', { 'seo.head': buildHead(...) })`.
+
+Template syntax is documented at the top of `utils/render.js`.

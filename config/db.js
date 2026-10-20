@@ -9,6 +9,7 @@ const path     = require('path');
 const fs       = require('fs');
 const Database = require('better-sqlite3');
 const env      = require('./env');
+const { migrate } = require('../database/migrate');
 
 let _db = null;
 
@@ -30,6 +31,9 @@ function getDb() {
   _db.pragma('foreign_keys = ON');    // enforce FK constraints
   _db.pragma('busy_timeout = 5000');  // wait up to 5 s before SQLITE_BUSY
   _db.pragma('synchronous = NORMAL'); // safe + fast in WAL mode
+
+  // Create anything new in schema.sql on existing databases
+  migrate(_db);
 
   if (env.IS_DEVELOPMENT) {
     console.log(`[db] Connected → ${dbPath}`);

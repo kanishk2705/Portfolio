@@ -1,14 +1,83 @@
 // controllers/projectController.js
 'use strict';
 
-const path    = require('path');
-const fs      = require('fs');
 const Project = require('../models/Project');
 const Skill   = require('../models/Skill');
 const { getDb } = require('../config/db');
-const { uniqueProjectSlug } = require('../utils/slugify');
+const { slugify, uniqueProjectSlug } = require('../utils/slugify');
 const { sanitizeHtml }      = require('../utils/sanitize');
-const { publicPath }        = require('../utils/fileNaming');
+const { removeUnreferenced } = require('../utils/uploads');
+const { importFromGithub, ImportError } = require('../utils/githubImport');
+
+const RICH_FIELDS = [
+  'overview', 'problem_statement', 'dataset_info',
+  'methodology', 'implementation_details', 'results', 'future_improvements',
+  'my_role', 'key_learnings',
+];
+
+/** Build the core projects-row data from a request body, falling back to `existing`. */
+function buildProjectData(body, existing, slug) {
+  const pick = (field) => (body[field] !== undefined ? (body[field] || null) : (existing?.[field] ?? null));
+
+  const sanitised = {};
+  for (const f of RICH_FIELDS) sanitised[f] = sanitizeHtml(body[f] ?? existing?.[f] ?? '');
+
+  const nowPublished = body.status !== undefined
+    ? body.status === 'published'
+    : existing?.status === 'published';
+  const wasPublished = existing?.status === 'published';
+
+  const order = parseInt(body.display_order, 10);
+
+  return {
+    slug,
+    title:             body.title?.trim() || existing?.title || '',
+    // An explicit null/'' clears the category; undefined keeps the old one
+    category_id:       body.category_id !== undefined
+      ? (parseInt(body.category_id, 10) || null)
+      : (existing?.category_id ?? null),
+    short_description: body.short_description?.trim() || existing?.short_description || '',
+    ...sanitised,
+    architecture_diagram_path: pick('architecture_diagram_path'),
+    workflow_diagram_path:     pick('workflow_diagram_path'),
+    thumbnail_path:     pick('thumbnail_path'),
+    banner_path:        pick('banner_path'),
+    github_url:         pick('github_url'),
+    research_paper_url: pick('research_paper_url'),
+    demo_url:           pick('demo_url'),
+    status:             nowPublished ? 'published' : 'draft',
+    project_status:     body.project_status || existing?.project_status || 'completed',
+    started_on:         pick('started_on'),
+    // Only completed projects have a completion month
+    completed_on:       (body.project_status || existing?.project_status) === 'completed' ? pick('completed_on') : null,
+    is_featured:        body.is_featured !== undefined ? (body.is_featured ? 1 : 0) : (existing?.is_featured ?? 0),
+    display_order:      Number.isNaN(order) ? (existing?.display_order ?? 0) : order,
+    published_at:       nowPublished
+      ? (wasPublished && existing.published_at ? existing.published_at : new Date().toISOString())
+      : null,
+  };
+}
+
+/** Save the list/relationship parts of a project. Only fields present in the body are touched. */
+function saveRelations(id, body) {
+  if (Array.isArray(body.technologies)) {
+    Project.setTechnologies(id, body.technologies.map((name) => Skill.findOrCreateTechnology(name).id));
+  }
+  if (Array.isArray(body.tags)) {
+    Project.setTags(id, body.tags.map((name) => Skill.findOrCreateTag(name).id));
+  }
+  if (Array.isArray(body.metrics))     Project.replaceMetrics(id, body.metrics);
+  if (Array.isArray(body.timeline))    Project.replaceTimeline(id, body.timeline);
+  if (Array.isArray(body.images))      Project.replaceImages(id, body.images);
+  if (Array.isArray(body.videos))      Project.replaceVideos(id, body.videos);
+  if (Array.isArray(body.documents))   Project.replaceDocuments(id, body.documents);
+  if (Array.isArray(body.related_ids)) Project.setRelated(id, body.related_ids);
+}
+
+function withRelatedIds(project) {
+  if (project) project.related_ids = Project.relatedIds(project.id);
+  return project;
+}
 
 // ── Public controllers ─────────────────────────────────────────
 
@@ -16,9 +85,10 @@ const projectController = {
   // GET /api/projects
   listPublished(req, res, next) {
     try {
-      const { category, search, page, limit } = req.query;
+      const { category, status, search, page, limit } = req.query;
       const result = Project.listPublished({
         categorySlug: category,
+        projectStatus: status,
         search:       search?.trim(),
         page:         parseInt(page, 10) || 1,
         limit:        Math.min(parseInt(limit, 10) || 12, 50),
@@ -59,10 +129,30 @@ const projectController = {
     } catch (err) { next(err); }
   },
 
+  // GET /api/admin/projects/options — id/title of every project (related-projects picker)
+  listOptions(req, res, next) {
+    try {
+      const projects = getDb().prepare('SELECT id, title, status FROM projects ORDER BY title').all();
+      res.json({ success: true, projects });
+    } catch (err) { next(err); }
+  },
+
+  // POST /api/admin/projects/import/github  { url }
+  // Returns draft field values for the form — nothing is saved.
+  async importGithub(req, res, next) {
+    try {
+      const result = await importFromGithub(req.body?.url);
+      res.json({ success: true, ...result });
+    } catch (err) {
+      if (err instanceof ImportError) return res.status(err.status).json({ success: false, message: err.message });
+      next(err);
+    }
+  },
+
   // GET /api/admin/projects/:id
   getById(req, res, next) {
     try {
-      const project = Project.findById(parseInt(req.params.id, 10));
+      const project = withRelatedIds(Project.findById(parseInt(req.params.id, 10)));
       if (!project) return res.status(404).json({ success: false, message: 'Project not found.' });
       res.json({ success: true, project });
     } catch (err) { next(err); }
@@ -73,68 +163,25 @@ const projectController = {
     try {
       const db   = getDb();
       const body = req.body;
+      const slug = slugify(body.slug || '') || uniqueProjectSlug(body.title, db);
 
-      // Resolve or auto-generate slug
-      const slug = body.slug?.trim()
-        ? body.slug.trim()
-        : uniqueProjectSlug(body.title, db);
-
-      // Sanitise all rich-text fields
-      const richFields = [
-        'overview','problem_statement','dataset_info',
-        'methodology','implementation_details','results','future_improvements',
-      ];
-      const sanitised = {};
-      for (const f of richFields) sanitised[f] = sanitizeHtml(body[f] || '');
-
-      const data = {
-        slug,
-        title:           body.title?.trim() || '',
-        category_id:     parseInt(body.category_id, 10) || null,
-        short_description: body.short_description?.trim() || '',
-        ...sanitised,
-        architecture_diagram_path: body.architecture_diagram_path || null,
-        workflow_diagram_path:     body.workflow_diagram_path     || null,
-        thumbnail_path:  body.thumbnail_path  || null,
-        banner_path:     body.banner_path     || null,
-        github_url:      body.github_url      || null,
-        research_paper_url: body.research_paper_url || null,
-        demo_url:        body.demo_url        || null,
-        status:          body.status === 'published' ? 'published' : 'draft',
-        is_featured:     body.is_featured ? 1 : 0,
-        display_order:   parseInt(body.display_order, 10) || 0,
-        published_at:    body.status === 'published' ? new Date().toISOString() : null,
-      };
-
+      const data = buildProjectData(body, null, slug);
       if (!data.title) return res.status(400).json({ success: false, message: 'Title is required.' });
 
-      const id = Project.create(data);
+      const id = db.transaction(() => {
+        const newId = Project.create(data);
+        saveRelations(newId, body);
+        return newId;
+      })();
 
-      // Handle technologies (array of names)
-      if (Array.isArray(body.technologies)) {
-        const techIds = body.technologies.map(name => Skill.findOrCreateTechnology(name).id);
-        Project.setTechnologies(id, techIds);
-      }
-
-      // Handle tags (array of names)
-      if (Array.isArray(body.tags)) {
-        const tagIds = body.tags.map(name => Skill.findOrCreateTag(name).id);
-        Project.setTags(id, tagIds);
-      }
-
-      // Handle metrics
-      if (Array.isArray(body.metrics)) {
-        Project.replaceMetrics(id, body.metrics);
-      }
-
-      // Handle timeline
-      if (Array.isArray(body.timeline)) {
-        Project.replaceTimeline(id, body.timeline);
-      }
-
-      const created = Project.findById(id);
+      const created = withRelatedIds(Project.findById(id));
       res.status(201).json({ success: true, message: 'Project created.', project: created });
-    } catch (err) { next(err); }
+    } catch (err) {
+      if (/UNIQUE constraint failed: projects.slug/.test(err.message)) {
+        return res.status(409).json({ success: false, message: 'Another project already uses that slug.' });
+      }
+      next(err);
+    }
   },
 
   // PUT /api/admin/projects/:id
@@ -146,59 +193,24 @@ const projectController = {
       if (!existing) return res.status(404).json({ success: false, message: 'Project not found.' });
 
       const body = req.body;
-      const slug = body.slug?.trim()
-        ? body.slug.trim()
-        : uniqueProjectSlug(body.title, db, id);
+      const slug = slugify(body.slug || '') || uniqueProjectSlug(body.title || existing.title, db, id);
+      const filesBefore = Project.filePaths(id);
 
-      const richFields = [
-        'overview','problem_statement','dataset_info',
-        'methodology','implementation_details','results','future_improvements',
-      ];
-      const sanitised = {};
-      for (const f of richFields) sanitised[f] = sanitizeHtml(body[f] ?? existing[f] ?? '');
+      db.transaction(() => {
+        Project.update(id, buildProjectData(body, existing, slug));
+        saveRelations(id, body);
+      })();
 
-      const wasPublished = existing.status === 'published';
-      const nowPublished = body.status === 'published';
+      removeUnreferenced(filesBefore);
 
-      const data = {
-        slug,
-        title:           body.title?.trim()             || existing.title,
-        category_id:     parseInt(body.category_id, 10) || existing.category_id || null,
-        short_description: body.short_description?.trim() || existing.short_description,
-        ...sanitised,
-        architecture_diagram_path: body.architecture_diagram_path ?? existing.architecture_diagram_path,
-        workflow_diagram_path:     body.workflow_diagram_path     ?? existing.workflow_diagram_path,
-        thumbnail_path:  body.thumbnail_path  ?? existing.thumbnail_path,
-        banner_path:     body.banner_path     ?? existing.banner_path,
-        github_url:      body.github_url      ?? existing.github_url,
-        research_paper_url: body.research_paper_url ?? existing.research_paper_url,
-        demo_url:        body.demo_url        ?? existing.demo_url,
-        status:          nowPublished ? 'published' : 'draft',
-        is_featured:     body.is_featured !== undefined ? (body.is_featured ? 1 : 0) : existing.is_featured,
-        display_order:   parseInt(body.display_order, 10) ?? existing.display_order,
-        published_at:    nowPublished
-          ? (wasPublished ? existing.published_at : new Date().toISOString())
-          : null,
-      };
-
-      Project.update(id, data);
-
-      if (Array.isArray(body.technologies)) {
-        const techIds = body.technologies.map(name => Skill.findOrCreateTechnology(name).id);
-        Project.setTechnologies(id, techIds);
-      }
-
-      if (Array.isArray(body.tags)) {
-        const tagIds = body.tags.map(name => Skill.findOrCreateTag(name).id);
-        Project.setTags(id, tagIds);
-      }
-
-      if (Array.isArray(body.metrics)) Project.replaceMetrics(id, body.metrics);
-      if (Array.isArray(body.timeline)) Project.replaceTimeline(id, body.timeline);
-
-      const updated = Project.findById(id);
+      const updated = withRelatedIds(Project.findById(id));
       res.json({ success: true, message: 'Project updated.', project: updated });
-    } catch (err) { next(err); }
+    } catch (err) {
+      if (/UNIQUE constraint failed: projects.slug/.test(err.message)) {
+        return res.status(409).json({ success: false, message: 'Another project already uses that slug.' });
+      }
+      next(err);
+    }
   },
 
   // DELETE /api/admin/projects/:id
@@ -207,7 +219,9 @@ const projectController = {
       const id = parseInt(req.params.id, 10);
       const existing = Project.findById(id);
       if (!existing) return res.status(404).json({ success: false, message: 'Project not found.' });
+      const files = Project.filePaths(id);
       Project.delete(id);
+      removeUnreferenced(files);
       res.json({ success: true, message: 'Project deleted.' });
     } catch (err) { next(err); }
   },
@@ -234,17 +248,38 @@ const projectController = {
   deleteImage(req, res, next) {
     try {
       const { projectId, imageId } = req.params;
-      const db = getDb();
-      const img = db.prepare('SELECT * FROM project_images WHERE id = ? AND project_id = ?')
+      const img = getDb().prepare('SELECT * FROM project_images WHERE id = ? AND project_id = ?')
                     .get(imageId, projectId);
       if (!img) return res.status(404).json({ success: false, message: 'Image not found.' });
-
-      // Delete file from disk
-      const fullPath = path.join(process.cwd(), img.file_path);
-      if (fs.existsSync(fullPath)) fs.unlinkSync(fullPath);
-
       Project.deleteImage(imageId, projectId);
+      removeUnreferenced([img.file_path]);
       res.json({ success: true, message: 'Image deleted.' });
+    } catch (err) { next(err); }
+  },
+
+  // DELETE /api/admin/projects/:projectId/videos/:videoId
+  deleteVideo(req, res, next) {
+    try {
+      const { projectId, videoId } = req.params;
+      const video = getDb().prepare('SELECT * FROM project_videos WHERE id = ? AND project_id = ?')
+                      .get(videoId, projectId);
+      if (!video) return res.status(404).json({ success: false, message: 'Video not found.' });
+      Project.deleteVideo(videoId, projectId);
+      removeUnreferenced([video.file_path]);
+      res.json({ success: true, message: 'Video deleted.' });
+    } catch (err) { next(err); }
+  },
+
+  // DELETE /api/admin/projects/:projectId/documents/:docId
+  deleteDocument(req, res, next) {
+    try {
+      const { projectId, docId } = req.params;
+      const doc = getDb().prepare('SELECT * FROM project_documents WHERE id = ? AND project_id = ?')
+                    .get(docId, projectId);
+      if (!doc) return res.status(404).json({ success: false, message: 'Document not found.' });
+      Project.deleteDocument(docId, projectId);
+      removeUnreferenced([doc.file_path]);
+      res.json({ success: true, message: 'Document deleted.' });
     } catch (err) { next(err); }
   },
 };

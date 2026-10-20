@@ -1,7 +1,7 @@
 // assets/js/projects.js
 // ---------------------------------------------------------------
 // Drives the /projects page: debounced search, category filter
-// chips (with live counts), animated grid re-render, pagination,
+// chips (with live counts), status filter, animated grid re-render, pagination,
 // and URL query-string sync so filtered views are shareable/bookmarkable.
 // ---------------------------------------------------------------
 'use strict';
@@ -9,6 +9,7 @@
 (function () {
   const state = {
     category: 'all',
+    status:   'all',
     search:   '',
     page:     1,
     limit:    9,
@@ -16,22 +17,19 @@
 
   const grid         = document.getElementById('project-grid');
   const chipsWrap     = document.getElementById('filter-chips');
+  const statusWrap    = document.getElementById('status-filter');
   const searchInput   = document.getElementById('search-input');
   const resultsMeta    = document.getElementById('results-meta');
   const resultsCount   = document.getElementById('results-count');
   const paginationWrap = document.getElementById('pagination');
 
-  function esc(str) {
-    if (str === null || str === undefined) return '';
-    return String(str)
-      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
-      .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
-  }
+  const { esc, projectCard } = window.Portfolio;
 
   // ---- Read initial state from URL ----
   function readUrlState() {
     const params = new URLSearchParams(window.location.search);
     state.category = params.get('category') || 'all';
+    state.status   = params.get('status') || 'all';
     state.search   = params.get('search') || '';
     state.page     = parseInt(params.get('page'), 10) || 1;
     if (searchInput) searchInput.value = state.search;
@@ -40,6 +38,7 @@
   function writeUrlState() {
     const params = new URLSearchParams();
     if (state.category !== 'all') params.set('category', state.category);
+    if (state.status !== 'all') params.set('status', state.status);
     if (state.search) params.set('search', state.search);
     if (state.page > 1) params.set('page', state.page);
     const qs = params.toString();
@@ -50,19 +49,18 @@
   // ---- Category chips (with live counts) ----
   async function renderChips() {
     try {
-      const { categories } = await api.getCategories();
-
-      // Fetch total count once (unfiltered) + per-category counts in parallel
-      const [allResult, ...catResults] = await Promise.all([
+      // Each category carries its published project_count; the "All" total
+      // also includes uncategorised projects, so it comes from the list API.
+      const [{ categories }, allResult] = await Promise.all([
+        api.getCategories(),
         api.getProjects({ page: 1, limit: 1 }),
-        ...categories.map((c) => api.getProjects({ category: c.slug, page: 1, limit: 1 })),
       ]);
 
       const allChip = chipsWrap.querySelector('[data-category="all"]');
       allChip.innerHTML = `All <span class="filter-chip__count">${allResult.pagination.total}</span>`;
 
-      categories.forEach((cat, i) => {
-        const count = catResults[i].pagination.total;
+      categories.forEach((cat) => {
+        const count = cat.project_count;
         if (count === 0) return; // don't show empty categories as filter noise
 
         const btn = document.createElement('button');
@@ -113,32 +111,39 @@
     });
   }
 
-  // ---- Project card markup (shared shape with home.js) ----
-  function projectCardHtml(p) {
-    const techChips = (p.technologies || []).slice(0, 4)
-      .map((t) => `<span class="badge">${esc(t.name)}</span>`).join('');
-
-    const thumb = p.thumbnail_path
-      ? `<img src="${esc(p.thumbnail_path)}" alt="${esc(p.title)} thumbnail" loading="lazy">`
-      : `<div class="project-card__thumb-placeholder"><svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.5"><circle cx="12" cy="12" r="9"/><path d="M9 12l2 2 4-4"/></svg></div>`;
-
-    return `
-      <a href="/project/${esc(p.slug)}" class="card card--hover project-card">
-        <div class="project-card__thumb">
-          ${thumb}
-          ${p.category ? `<span class="project-card__category">${esc(p.category)}</span>` : ''}
-        </div>
-        <div class="project-card__body">
-          <h3 class="project-card__title">${esc(p.title)}</h3>
-          <p class="project-card__desc">${esc(p.short_description)}</p>
-          <div class="project-card__tags">${techChips}</div>
-          <div class="project-card__footer">
-            <span class="btn btn--ghost btn--sm" style="padding-left:0;">View Project →</span>
-          </div>
-        </div>
-      </a>
-    `;
+  // ---- Status filter: only shown when projects have more than one status ----
+  async function renderStatusFilter() {
+    try {
+      const statuses = ['completed', 'ongoing', 'planned'];
+      const totals = await Promise.all(statuses.map((status) =>
+        api.getProjects({ status, page: 1, limit: 1 }).then((r) => r.pagination.total)));
+      statuses.forEach((status, i) => {
+        statusWrap.querySelector(`[data-status="${status}"]`).hidden = totals[i] === 0;
+      });
+      statusWrap.hidden = totals.filter((n) => n > 0).length < 2 && state.status === 'all';
+      setActiveStatus(state.status);
+    } catch (err) {
+      console.error('Failed to load status counts:', err);
+    }
   }
+
+  function setActiveStatus(status) {
+    statusWrap.querySelectorAll('.status-filter__btn').forEach((btn) => {
+      const isActive = btn.dataset.status === status;
+      btn.classList.toggle('is-active', isActive);
+      btn.setAttribute('aria-pressed', String(isActive));
+    });
+  }
+
+  statusWrap.addEventListener('click', (e) => {
+    const btn = e.target.closest('.status-filter__btn');
+    if (!btn) return;
+    state.status = btn.dataset.status;
+    state.page = 1;
+    setActiveStatus(state.status);
+    writeUrlState();
+    loadProjects();
+  });
 
   // ---- Pagination ----
   function renderPagination(pagination) {
@@ -196,12 +201,12 @@
             <h3>No projects found</h3>
             <p>${state.search
               ? `Nothing matches "${esc(state.search)}". Try a different search term.`
-              : 'No projects in this category yet.'}</p>
+              : 'No projects match these filters yet.'}</p>
           </div>`;
         resultsMeta.style.display = 'none';
         paginationWrap.style.display = 'none';
       } else {
-        grid.innerHTML = projects.map(projectCardHtml).join('');
+        grid.innerHTML = projects.map((p) => projectCard(p)).join('');
         grid.classList.add('project-grid--animated');
 
         resultsMeta.style.display = 'flex';
@@ -220,5 +225,6 @@
   // ---- Boot ----
   readUrlState();
   renderChips();
+  renderStatusFilter();
   loadProjects();
 })();

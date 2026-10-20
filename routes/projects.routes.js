@@ -12,12 +12,16 @@ const { validate }    = require('../middleware/validate');
 router.use(requireAuth, verifyCsrf);
 
 router.get('/',                              controller.listAll);
+router.get('/options',                       controller.listOptions);  // before /:id
 router.get('/:id',                           controller.getById);
 router.post('/',         validate('project'), controller.create);
+router.post('/import/github',                controller.importGithub);
 router.put('/:id',       validate('project'), controller.update);
 router.delete('/:id',                        controller.delete);
 router.post('/:id/publish',                  controller.publish);
 router.post('/:id/unpublish',                controller.unpublish);
-router.delete('/:projectId/images/:imageId', controller.deleteImage);
+router.delete('/:projectId/images/:imageId',    controller.deleteImage);
+router.delete('/:projectId/videos/:videoId',    controller.deleteVideo);
+router.delete('/:projectId/documents/:docId',   controller.deleteDocument);
 
 module.exports = router;

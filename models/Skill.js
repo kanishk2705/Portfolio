@@ -21,6 +21,39 @@ const Skill = {
     return cats;
   },
 
+  createCategory({ name, icon, sort_order }) {
+    return getDb().prepare(
+      'INSERT INTO skill_categories (name, icon, sort_order) VALUES (?, ?, ?)'
+    ).run(name.trim(), icon || null, sort_order || 0).lastInsertRowid;
+  },
+
+  updateCategory(id, { name, icon, sort_order }) {
+    return getDb().prepare(
+      'UPDATE skill_categories SET name = ?, icon = ?, sort_order = ? WHERE id = ?'
+    ).run(name.trim(), icon || null, sort_order || 0, id);
+  },
+
+  /** Deleting a category also deletes its skills (ON DELETE CASCADE) */
+  deleteCategory(id) {
+    return getDb().prepare('DELETE FROM skill_categories WHERE id = ?').run(id);
+  },
+
+  createSkill({ skill_category_id, name, proficiency, sort_order }) {
+    return getDb().prepare(`
+      INSERT INTO skills (skill_category_id, name, proficiency, sort_order) VALUES (?, ?, ?, ?)
+    `).run(skill_category_id, name.trim(), proficiency || null, sort_order || 0).lastInsertRowid;
+  },
+
+  updateSkill(id, { skill_category_id, name, proficiency, sort_order }) {
+    return getDb().prepare(`
+      UPDATE skills SET skill_category_id = ?, name = ?, proficiency = ?, sort_order = ? WHERE id = ?
+    `).run(skill_category_id, name.trim(), proficiency || null, sort_order || 0, id);
+  },
+
+  deleteSkill(id) {
+    return getDb().prepare('DELETE FROM skills WHERE id = ?').run(id);
+  },
+
   // ── Technologies (reusable tech-stack chips) ──────────────
 
   listTechnologies() {

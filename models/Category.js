@@ -10,6 +10,17 @@ const Category = {
     ).all();
   },
 
+  /** Categories with how many published projects each has (public API) */
+  listWithCounts() {
+    return getDb().prepare(`
+      SELECT c.*, COUNT(p.id) AS project_count
+      FROM categories c
+      LEFT JOIN projects p ON p.category_id = c.id AND p.status = 'published'
+      GROUP BY c.id
+      ORDER BY c.sort_order, c.name
+    `).all();
+  },
+
   findById(id) {
     return getDb().prepare('SELECT * FROM categories WHERE id = ?').get(id);
   },

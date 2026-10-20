@@ -9,8 +9,8 @@
 //
 // Called by: npm run seed
 // Run AFTER npm run build:db.
-// Re-running is safe — every insert uses INSERT OR IGNORE or
-// INSERT OR REPLACE so no duplicates are created.
+// Re-running is safe — existing rows and admin-panel edits are never
+// overwritten or duplicated.
 // ---------------------------------------------------------------
 'use strict';
 
@@ -165,32 +165,39 @@ const SKILL_CATEGORIES = [
 
 const CERTIFICATES = [
   {
-    title: 'Machine Learning Specialization',
-    issuer: 'DeepLearning.AI / Stanford (Coursera)',
-    issue_date: '2024',
-    credential_url: '',
+    title: 'Python Programming',
+    issuer: '360DigiTMG',
+    issue_date: 'October 29, 2024',
+    credential_url: 'https://drive.google.com/file/d/15ODY1TZxbgTBJif_BSTLpO0UFMtNkqRX/view?usp=drive_link',
     sort_order: 1,
   },
   {
-    title: 'Deep Learning Specialization',
-    issuer: 'DeepLearning.AI (Coursera)',
-    issue_date: '2024',
-    credential_url: '',
+    title: 'Data Visualization using Power BI',
+    issuer: '360DigiTMG',
+    issue_date: 'December 26, 2024',
+    credential_url: 'https://drive.google.com/file/d/1y9VCxEb_S3k91Ku-dT6UnQ-dXFMCy1_G/view?usp=drive_link',
     sort_order: 2,
   },
   {
-    title: 'Data Engineering with Python',
-    issuer: 'IBM / Coursera',
-    issue_date: '2025',
-    credential_url: '',
+    title: 'Cloud Computing',
+    issuer: '360DigiTMG',
+    issue_date: 'October 22, 2024',
+    credential_url: 'https://drive.google.com/file/d/1WQ7VrCYJ9EiciT5oyZjxmrqgcHU6iblb/view?usp=drive_link',
     sort_order: 3,
   },
   {
-    title: 'MLOps Fundamentals',
-    issuer: 'Google Cloud / Coursera',
-    issue_date: '2025',
-    credential_url: '',
-    sort_order: 4,
+    title: 'Generative AI and Prompt Engineering',
+    issuer: '360DigiTMG',
+    issue_date: 'July 9, 2025',
+    credential_url: 'https://drive.google.com/file/d/1XYYJvP1_fHgPKJIJGLQI2Yo0yn3SQ0dw/view?usp=drive_link',
+    sort_order: 3,
+  },
+  {
+    title: 'ML on Cloud',
+    issuer: '360DigiTMG',
+    issue_date: 'September 27, 2025',
+    credential_url: 'https://drive.google.com/file/d/1QhRsHMQi7faQOgsLkn7XCHyTNHuatsRc/view?usp=drive_link',
+    sort_order: 5,
   },
 ];
 
@@ -198,49 +205,79 @@ const CERTIFICATES = [
 // These become editable from the admin Settings panel (Phase 6).
 const DEFAULT_SETTINGS = [
   // ── Site identity
-  { key: 'site.title',                 value: 'Kanishk | AI/ML Engineer' },
-  { key: 'site.tagline',               value: 'Building Intelligent Systems with Data, Machine Learning & AI' },
-  { key: 'site.description',           value: 'Portfolio of Kanishk — AI/ML engineer and research-oriented developer specialising in machine learning, deep learning, NLP, data engineering and generative AI.' },
+  { key: 'site.name', value: 'Kanishk' },
+  { key: 'site.title', value: 'Kanishk | AI/ML & Data Science' },
+  { key: 'site.tagline', value: 'CSE Student building toward AI, ML & Data Science' },
+  { key: 'site.description', value: 'I’m Kanishk, a final-year Computer Science and Engineering student from Tamil Nadu, exploring AI, Machine Learning, Data Science, and the mathematics behind intelligent systems through projects and hands-on learning.' },
 
-  // ── Hero section
-  { key: 'hero.headline',              value: 'Building Intelligent Systems\nwith Data, ML & AI' },
-  { key: 'hero.subheadline',           value: 'Specialising in Machine Learning, Deep Learning, NLP, Data Engineering, and Generative AI — turning raw data into production-ready intelligent systems.' },
-  { key: 'hero.cta_primary_label',     value: 'Explore Projects' },
-  { key: 'hero.cta_secondary_label',   value: 'Contact Me' },
+  // ── Hero section (wrap words in *asterisks* for the gradient highlight)
+  { key: 'hero.headline', value: 'I’m learning to turn mathematics, data, and code into *intelligent systems*.' },
+  { key: 'hero.subheadline', value: 'I’m a final-year Computer Science and Engineering student exploring AI, Machine Learning, and Data Science by learning the fundamentals, building projects, and figuring out where mathematics and computation come together.' },
+  { key: 'hero.cta_primary_label', value: 'Explore My Projects' },
+  { key: 'hero.cta_secondary_label', value: 'View My GitHub' },
+  { key: 'hero.cta_secondary_url', value: 'https://github.com/kanishk2705' },
 
-  // ── About section
-  { key: 'about.headline',             value: 'Research-Driven Engineer.\nBuilder at Heart.' },
-  { key: 'about.body',                 value: "I'm an AI/ML engineer who obsesses over the full stack of a machine learning system — from raw dataset to deployed model to the metrics that actually matter in production.\n\nMy work spans classical machine learning, deep learning, large language models, and data pipelines. I believe the best AI systems are those that are rigorously engineered, honestly evaluated, and genuinely useful.\n\nI'm drawn to problems at the intersection of research and engineering: taking an idea from a paper, validating it on real data, and shipping it as something people can use." },
+  // ── About section (blank line between paragraphs)
+  { key: 'about.headline', value: 'A CSE Student with a Growing Focus on AI & Data' },
+  { key: 'about.body', value: 'I’m currently in my final year of Computer Science and Engineering, but the part of computing that interests me most is the connection between mathematics, patterns, data, and intelligent decision-making.\n\nDuring my degree, I’ve studied the usual foundations of computer science, while gradually realizing that I’m most drawn to areas such as probability, statistics, machine learning, and artificial intelligence. I’m now using projects as a way to move beyond studying concepts for exams and actually understand how they work in practice.\n\nThis portfolio is a record of that process: what I’m learning, what I’m building, what I’m experimenting with, and how my technical interests are developing.' },
 
   // ── Contact / social
-  { key: 'contact.email',              value: 'your@email.com' },
-  { key: 'contact.github',             value: 'https://github.com/yourusername' },
-  { key: 'contact.linkedin',           value: 'https://linkedin.com/in/yourusername' },
-  { key: 'contact.resume_url',         value: '' },
+  { key: 'contact.email', value: 'kanishk.ac.official@gmail.com' },
+  { key: 'contact.github', value: 'https://github.com/kanishk2705' },
+  { key: 'contact.linkedin', value: 'https://www.linkedin.com/in/kanishk27/' },
+  { key: 'contact.resume_url', value: 'https://drive.google.com/file/d/1FwDbcZmmisjJB7xGyVgGCcyH7AHS5lwu/view?usp=drive_link' },
+
+  // ── Contact section + CV (cv.file is set by uploading a PDF in Settings)
+  { key: 'contact.headline', value: 'Let\'s build something intelligent' },
+  { key: 'contact.body', value: 'Open to research collaborations, internships, and interesting problems involving data and machine learning.' },
+  { key: 'cv.file', value: '' },
+
+  // ── Research interests (admin → Research). items is a JSON array of
+  // { title, description }; the homepage section is hidden while empty.
+  { key: 'research.headline', value: 'Research Interests' },
+  { key: 'research.intro', value: '' },
+  { key: 'research.items', value: '[]' },
 
   // ── Footer
-  { key: 'footer.tagline',             value: 'Built with curiosity, engineered with intent.' },
+  { key: 'footer.tagline', value: 'Learning the fundamentals. Building with purpose. Exploring what comes next.' },
 
-  // ── Timeline section (homepage). Stored as a JSON array string;
-  // each item: { year, title, description, category }
-  // category is one of: "Learning Journey", "Projects", "Research",
-  // "Certifications", "Achievements" — drives the colored tag on each entry.
+  // ── Homepage timeline (admin → Journey). Stored as a JSON array string;
+  // each item: { year, category, title, description }.
   { key: 'timeline.items', value: JSON.stringify([
-    { year: '2023', category: 'Learning Journey', title: 'Started CS Undergrad',
-      description: 'Began a Computer Science degree, with an early pull toward data and machine learning over general software development.' },
-    { year: '2024', category: 'Learning Journey', title: 'First ML Models',
-      description: 'Built first classical ML projects — classification and regression pipelines using scikit-learn, then moved into XGBoost and ensemble methods.' },
-    { year: '2025', category: 'Projects', title: 'Production-Grade Deployments',
-      description: 'Shipped multiple end-to-end projects: a resume analyzer using sentence-transformers + Gemini, a FinBERT-based market sentiment system, and a Streamlit-deployed predictor — each fully containerized and live.' },
-    { year: '2025', category: 'Research', title: 'Generative AI & RAG Systems',
-      description: 'Built a Retrieval-Augmented Generation clinical assistant combining FAISS vector search, sentence-transformers embeddings, and Gemini 2.0 Flash, deployed via FastAPI and Streamlit.' },
-    { year: '2026', category: 'Achievements', title: 'Industry Internship',
-      description: 'Joined a Summer internship building a predictive maintenance ML pipeline, working with real sensor data, feature engineering, and production data integration challenges.' },
+    {
+      year: '2023',
+      category: 'Learning Journey',
+      title: 'Started CS Undergrad',
+      description: 'Began a Computer Science degree, with an early pull toward data and machine learning over general software development.',
+    },
+    {
+      year: '2024',
+      category: 'Learning Journey',
+      title: 'First ML Models',
+      description: 'Built first classical ML projects — classification and regression pipelines using scikit-learn, then moved into XGBoost and ensemble methods.',
+    },
+    {
+      year: '2025',
+      category: 'Projects',
+      title: 'Production-Grade Deployments',
+      description: 'Shipped multiple end-to-end projects: a resume analyzer using sentence-transformers + Gemini, a FinBERT-based market sentiment system, and a Streamlit-deployed predictor — each fully containerized and live.',
+    },
+    {
+      year: '2025',
+      category: 'Research',
+      title: 'Generative AI & RAG Systems',
+      description: 'Built a Retrieval-Augmented Generation clinical assistant combining FAISS vector search, sentence-transformers embeddings, and Gemini 2.0 Flash, deployed via FastAPI and Streamlit.',
+    },
+    {
+      year: '2026',
+      category: 'Achievements',
+      title: 'Industry Internship',
+      description: 'Joined a Summer internship building a predictive maintenance ML pipeline, working with real sensor data, feature engineering, and production data integration challenges.',
+    },
   ]) },
 
-  // ── SEO / Open Graph
-  { key: 'og.image',                   value: '/assets/img/og-default.png' },
-  { key: 'twitter.handle',             value: '@yourusername' },
+  // ── Link previews (Open Graph)
+  { key: 'og.image', value: '/assets/img/og-default.png' },
 ];
 
 // ---------------------------------------------------------------
@@ -253,6 +290,9 @@ async function seed() {
   db.pragma('foreign_keys = ON');
 
   // ── Admin user ────────────────────────────────────────────────
+  if (process.env.NODE_ENV === 'production' && (!process.env.ADMIN_EMAIL || !process.env.ADMIN_PASSWORD)) {
+    throw new Error('ADMIN_EMAIL and ADMIN_PASSWORD must be set in production (refusing to create a default login).');
+  }
   console.log('[seed] Creating admin user...');
   const passwordHash = await bcrypt.hash(ADMIN_PASSWORD, 12);
 
@@ -283,14 +323,20 @@ async function seed() {
     VALUES (@skill_category_id, @name, @proficiency, @sort_order)
   `);
 
-  for (const sc of SKILL_CATEGORIES) {
-    insertSkillCat.run({ name: sc.name, icon: sc.icon, sort_order: sc.sort_order });
-    const { id: catId } = getSkillCatId.get(sc.name);
-    for (const skill of sc.skills) {
-      insertSkill.run({ skill_category_id: catId, ...skill });
+  // skills has no unique key, so only seed a fresh database — once you
+  // manage skills from the admin panel, re-running seed leaves them alone.
+  if (db.prepare('SELECT COUNT(*) AS n FROM skill_categories').get().n > 0) {
+    console.log('[seed]   skills already present — skipped');
+  } else {
+    for (const sc of SKILL_CATEGORIES) {
+      insertSkillCat.run({ name: sc.name, icon: sc.icon, sort_order: sc.sort_order });
+      const { id: catId } = getSkillCatId.get(sc.name);
+      for (const skill of sc.skills) {
+        insertSkill.run({ skill_category_id: catId, ...skill });
+      }
     }
+    console.log(`[seed]   ${SKILL_CATEGORIES.length} skill categories`);
   }
-  console.log(`[seed]   ${SKILL_CATEGORIES.length} skill categories`);
 
   // ── Certificates ──────────────────────────────────────────────
   console.log('[seed] Seeding certificates...');
@@ -298,10 +344,16 @@ async function seed() {
     INSERT OR IGNORE INTO certificates (title, issuer, issue_date, credential_url, sort_order)
     VALUES (@title, @issuer, @issue_date, @credential_url, @sort_order)
   `);
-  for (const cert of CERTIFICATES) insertCert.run(cert);
-  console.log(`[seed]   ${CERTIFICATES.length} certificates`);
+  // Same as skills: no unique key, so only seed an empty table
+  if (db.prepare('SELECT COUNT(*) AS n FROM certificates').get().n > 0) {
+    console.log('[seed]   certificates already present — skipped');
+  } else {
+    for (const cert of CERTIFICATES) insertCert.run(cert);
+    console.log(`[seed]   ${CERTIFICATES.length} certificates`);
+  }
 
   // ── Default settings ──────────────────────────────────────────
+  // INSERT OR IGNORE: adds missing keys, never overwrites admin-panel edits
   console.log('[seed] Seeding default settings...');
   const insertSetting = db.prepare(`
     INSERT OR IGNORE INTO settings (key, value)
@@ -314,9 +366,7 @@ async function seed() {
   console.log('\n[seed] ✓ Done. Your database is ready.');
   console.log(`\n  Admin login → Email: ${ADMIN_EMAIL}`);
   console.log(`               Password: (the one in your .env)`);
-  console.log('\n  Remember to update contact.email, contact.github,');
-  console.log('  contact.linkedin, and contact.resume_url in the');
-  console.log('  admin Settings panel after your first login.\n');
+  console.log('\n  Edit your content any time from the admin panel.\n');
 }
 
 seed().catch(err => {

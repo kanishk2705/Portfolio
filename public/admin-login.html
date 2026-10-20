@@ -6,10 +6,12 @@
 <title>Admin Login | Kanishk Portfolio</title>
 <meta name="robots" content="noindex, nofollow">
 <meta name="theme-color" content="#ffffff">
+<link rel="icon" href="/assets/img/favicon.svg" type="image/svg+xml">
 
 <script>
   (function () {
-    var saved = localStorage.getItem('portfolio-theme');
+    var saved = null;
+    try { saved = localStorage.getItem('portfolio-theme'); } catch (e) {}
     var theme = saved || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
     document.documentElement.setAttribute('data-theme', theme);
   })();

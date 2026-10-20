@@ -77,7 +77,8 @@
     const href = link.getAttribute('href');
     if (!href) return;
     const isHome = href === '/' && currentPath === '/';
-    const isMatch = href !== '/' && currentPath.startsWith(href);
+    // Project detail pages (/project/…) belong under "Projects"
+    const isMatch = href !== '/' && (currentPath.startsWith(href) || (href === '/projects' && currentPath.startsWith('/project/')));
     if (isHome || isMatch) link.classList.add('is-active');
   });
 })();

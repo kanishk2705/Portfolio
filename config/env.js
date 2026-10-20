@@ -35,6 +35,8 @@ const env = {
   ADMIN_EMAIL:    optional('ADMIN_EMAIL'),
   ADMIN_PASSWORD: optional('ADMIN_PASSWORD'),
 
+  UPLOADS_PATH:   optional('UPLOADS_PATH', './uploads'),
+
   MAX_IMAGE_SIZE_MB:    parseInt(optional('MAX_IMAGE_SIZE_MB',    '8'),   10),
   MAX_VIDEO_SIZE_MB:    parseInt(optional('MAX_VIDEO_SIZE_MB',    '200'), 10),
   MAX_DOCUMENT_SIZE_MB: parseInt(optional('MAX_DOCUMENT_SIZE_MB', '20'),  10),

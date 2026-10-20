@@ -4,7 +4,7 @@
 
 - GitHub account with the project repository
 - Render account (render.com)
-- `npm run build:db` and `npm run seed` will run on first deploy
+- `npm run build:db` and `npm run seed` run on every deploy (both only add what is missing, so your content is never overwritten)
 
 ---
 
@@ -15,7 +15,7 @@ git init
 git add .
 git commit -m "Initial commit — portfolio platform"
 git remote add origin https://github.com/YOUR_USERNAME/ai-ml-portfolio.git
-git push -u origin main
+git push -u origin master
 ```
 
 ---
@@ -30,8 +30,9 @@ Or configure manually:
 
 | Setting | Value |
 |---|---|
-| **Runtime** | Node |
-| **Build Command** | `npm install && npm run build:db` |
+| **Runtime** | Node 24 (pinned in `package.json` → `engines`) |
+| **Branch** | `master` |
+| **Build Command** | `npm install && npm run build:db && npm run seed` |
 | **Start Command** | `npm start` |
 | **Instance Type** | Starter ($7/mo) — needed for persistent disk |
 | **Region** | Oregon (or nearest to your users) |
@@ -57,6 +58,7 @@ In Render → Environment, add:
 NODE_ENV=production
 PORT=10000
 DATABASE_PATH=/var/data/portfolio.db
+UPLOADS_PATH=/var/data/uploads
 SITE_URL=https://your-domain.onrender.com
 
 JWT_SECRET=<generate: node -e "console.log(require('crypto').randomBytes(48).toString('hex'))">
@@ -80,16 +82,10 @@ MAX_DOCUMENT_SIZE_MB=20
 Render will automatically:
 1. Run `npm install`
 2. Run `npm run build:db` (creates `/var/data/portfolio.db` from `schema.sql`)
-3. Start the server
+3. Run `npm run seed` (creates your admin user from `ADMIN_EMAIL` + `ADMIN_PASSWORD`, plus the default skills, certificates and settings on an empty database)
+4. Start the server
 
-**After the first deploy**, run the seed script **once** to create your admin account:
-
-In Render → your service → **Shell**:
-```bash
-npm run seed
-```
-
-This creates your admin user from `ADMIN_EMAIL` + `ADMIN_PASSWORD` env vars.
+Seeding never overwrites anything you have edited in the admin panel.
 
 ---
 
@@ -121,8 +117,8 @@ Uploaded files (thumbnails, images, PDFs) are stored in:
 /var/data/uploads/documents/
 ```
 
-> Update `server.js` upload path to use `/var/data/uploads` in production.
-> The `uploads/` directory in the repo is for local development only.
+The location comes from the `UPLOADS_PATH` environment variable (already set in `render.yaml`).
+Locally it defaults to the repo's `uploads/` folder.
 
 ---
 

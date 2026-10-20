@@ -3,6 +3,8 @@
 // SEO utilities:
 //   generateSitemap(db, siteUrl)   → XML string
 //   projectJsonLd(project, siteUrl) → JSON-LD object for detail pages
+//   personJsonLd(ctx, siteUrl)      → JSON-LD object for the homepage
+//   buildHead(opts, siteUrl)        → <title>/meta/OG/JSON-LD HTML for <head>
 // ---------------------------------------------------------------
 'use strict';
 
@@ -65,8 +67,7 @@ ${urls.join('\n')}
 
 /**
  * Build a JSON-LD structured data object for a project detail page.
- * Injected as <script type="application/ld+json"> in the page head
- * via the project.js frontend script (sets document head dynamically).
+ * Rendered into the page <head> by the /project/:slug route in server.js.
  */
 function projectJsonLd(project, siteUrl) {
   const base = siteUrl.replace(/\/$/, '');
@@ -88,31 +89,59 @@ function projectJsonLd(project, siteUrl) {
 }
 
 /**
- * Build the Open Graph + Twitter meta tag HTML for a project page.
- * Returned as a string to be injected into <head>.
+ * JSON-LD describing the site owner, used on the homepage so search
+ * engines can connect the site with your GitHub / LinkedIn profiles.
  */
-function projectMetaTags(project, siteUrl) {
-  const base = siteUrl.replace(/\/$/, '');
-  const url   = `${base}/project/${xmlEscape(project.slug)}`;
-  const title = xmlEscape(`${project.title} | Kanishk`);
-  const desc  = xmlEscape(project.short_description || '');
-  const img   = project.thumbnail_path
-    ? xmlEscape(`${base}${project.thumbnail_path}`)
-    : xmlEscape(`${base}/assets/img/og-default.png`);
-
-  return `
-  <title>${title}</title>
-  <meta name="description" content="${desc}">
-  <meta property="og:type" content="article">
-  <meta property="og:title" content="${title}">
-  <meta property="og:description" content="${desc}">
-  <meta property="og:url" content="${url}">
-  <meta property="og:image" content="${img}">
-  <meta name="twitter:card" content="summary_large_image">
-  <meta name="twitter:title" content="${title}">
-  <meta name="twitter:description" content="${desc}">
-  <meta name="twitter:image" content="${img}">
-  <link rel="canonical" href="${url}">`;
+function personJsonLd(ctx, siteUrl) {
+  const sameAs = [ctx['contact.github'], ctx['contact.linkedin']].filter(Boolean);
+  return {
+    '@context': 'https://schema.org',
+    '@type': 'Person',
+    name: ctx['site.name'],
+    url: siteUrl.replace(/\/$/, '') + '/',
+    ...(ctx['site.tagline'] ? { description: ctx['site.tagline'] } : {}),
+    ...(sameAs.length ? { sameAs } : {}),
+  };
 }
 
-module.exports = { generateSitemap, projectJsonLd, projectMetaTags };
+/**
+ * Build the <title>, description, canonical, Open Graph, Twitter and
+ * JSON-LD tags for a page. Returned as an HTML string for <head>.
+ *
+ * @param {object} o
+ * @param {string} o.title
+ * @param {string} o.description
+ * @param {string} o.path        site-relative path, e.g. "/projects"
+ * @param {string} [o.image]     site-relative or absolute image URL
+ * @param {string} [o.type]      og:type (website | article)
+ * @param {object} [o.jsonLd]    structured data object
+ * @param {boolean} [o.noindex]  keep the page out of search results
+ * @param {string} [o.twitter]   @handle for twitter:site
+ */
+function buildHead({ title, description, path, image, type = 'website', jsonLd, noindex, twitter }, siteUrl) {
+  const base = siteUrl.replace(/\/$/, '');
+  const url  = base + path;
+  const img  = image ? (/^https?:\/\//.test(image) ? image : base + image) : '';
+  const esc  = xmlEscape;
+
+  const tags = [
+    `<title>${esc(title)}</title>`,
+    `<meta name="description" content="${esc(description)}">`,
+    noindex ? '<meta name="robots" content="noindex">' : `<link rel="canonical" href="${esc(url)}">`,
+    `<meta property="og:type" content="${esc(type)}">`,
+    `<meta property="og:title" content="${esc(title)}">`,
+    `<meta property="og:description" content="${esc(description)}">`,
+    `<meta property="og:url" content="${esc(url)}">`,
+    img && `<meta property="og:image" content="${esc(img)}">`,
+    `<meta name="twitter:card" content="${img ? 'summary_large_image' : 'summary'}">`,
+    `<meta name="twitter:title" content="${esc(title)}">`,
+    `<meta name="twitter:description" content="${esc(description)}">`,
+    img && `<meta name="twitter:image" content="${esc(img)}">`,
+    twitter && `<meta name="twitter:site" content="${esc(twitter)}">`,
+    // "<" is escaped so a value containing "</script>" can't end the tag early
+    jsonLd && `<script type="application/ld+json">${JSON.stringify(jsonLd).replace(/</g, '\\u003c')}</script>`,
+  ];
+  return tags.filter(Boolean).join('\n');
+}
+
+module.exports = { generateSitemap, projectJsonLd, personJsonLd, buildHead };

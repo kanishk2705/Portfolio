@@ -365,3 +365,50 @@
   visibility: visible;
   transform: translateY(0);
 }
+
+/* ---------------- PROJECT STATUS BADGE ---------------- */
+/* Shared by project cards (cards.js), the project banner and filters */
+.status-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  font-weight: 600;
+  padding: var(--space-1) var(--space-3);
+  border-radius: var(--radius-full);
+  border: 1px solid transparent;
+  white-space: nowrap;
+}
+.status-badge__dot { width: 7px; height: 7px; border-radius: 50%; background: currentColor; flex-shrink: 0; }
+
+.status-badge--completed {
+  color: var(--success);
+  background: color-mix(in srgb, var(--success) 12%, transparent);
+  border-color: color-mix(in srgb, var(--success) 25%, transparent);
+}
+.status-badge--ongoing {
+  color: var(--primary-from);
+  background: color-mix(in srgb, var(--primary-from) 12%, transparent);
+  border-color: color-mix(in srgb, var(--primary-from) 25%, transparent);
+}
+.status-badge--ongoing .status-badge__dot { animation: status-pulse 1.8s ease-in-out infinite; }
+.status-badge--planned {
+  color: var(--text-secondary);
+  background: var(--bg-subtle);
+  border-color: var(--border);
+}
+
+@keyframes status-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 color-mix(in srgb, currentColor 55%, transparent); }
+  50%      { box-shadow: 0 0 0 5px transparent; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .status-badge--ongoing .status-badge__dot { animation: none; }
+}
+
+/* ---------------- NAV CV BUTTON ---------------- */
+.nav__cv { gap: var(--space-2); }
+@media (max-width: 860px) {
+  .nav__cv { display: none; }  /* the mobile menu has its own CV link */
+}

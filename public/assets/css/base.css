@@ -142,6 +142,34 @@ p { margin: 0; }
   text-align: center;
 }
 
+.section-head--center .eyebrow {
+  display: flex;
+  justify-content: center;
+}
+
+.section--subtle {
+  background: var(--bg-subtle);
+}
+
+/* Homepage: alternate section backgrounds automatically, so sections that
+   are hidden (no content yet) never leave two same-coloured bands together.
+   Section 1 is the hero; the contact card sits on the plain background. */
+main > section.section:nth-of-type(odd):not(#contact) {
+  background: var(--bg-subtle);
+}
+
+.section-head__body p {
+  color: var(--text-secondary);
+  font-size: var(--text-lg);
+  line-height: var(--leading-relaxed);
+}
+.section-head__body p + p { margin-top: var(--space-3); }
+
+/* Links rendered from an empty setting (e.g. no resume URL yet) */
+a[data-hide-if-empty][href=""] {
+  display: none !important;
+}
+
 @media (max-width: 640px) {
   .section-head h2 { font-size: var(--text-3xl); }
 }
@@ -173,3 +201,6 @@ p { margin: 0; }
 }
 
 .skip-link:focus { top: var(--space-4); }
+
+/* Make the hidden attribute win over any display rule */
+[hidden] { display: none !important; }

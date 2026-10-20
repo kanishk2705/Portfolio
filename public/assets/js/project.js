@@ -26,57 +26,6 @@
     document.getElementById('project-root').style.display    = state === 'ready'     ? 'block' : 'none';
   }
 
-  function updateMeta(project) {
-    const title = `${project.title} | Kanishk`;
-    document.title = title;
-    document.querySelector('meta[name="description"]').setAttribute('content', project.short_description || '');
-    document.querySelector('meta[property="og:title"]').setAttribute('content', title);
-    document.querySelector('meta[property="og:description"]').setAttribute('content', project.short_description || '');
-
-    if (project.thumbnail_path) {
-      let ogImg = document.querySelector('meta[property="og:image"]');
-      if (!ogImg) {
-        ogImg = document.createElement('meta');
-        ogImg.setAttribute('property', 'og:image');
-        document.head.appendChild(ogImg);
-      }
-      ogImg.setAttribute('content', project.thumbnail_path);
-    }
-
-    // Canonical URL
-    let canonical = document.querySelector('link[rel="canonical"]');
-    if (!canonical) {
-      canonical = document.createElement('link');
-      canonical.setAttribute('rel', 'canonical');
-      document.head.appendChild(canonical);
-    }
-    canonical.setAttribute('href', window.location.href.split('?')[0]);
-
-    // JSON-LD structured data
-    let ldScript = document.getElementById('project-jsonld');
-    if (!ldScript) {
-      ldScript = document.createElement('script');
-      ldScript.id   = 'project-jsonld';
-      ldScript.type = 'application/ld+json';
-      document.head.appendChild(ldScript);
-    }
-    ldScript.textContent = JSON.stringify({
-      '@context': 'https://schema.org',
-      '@type': 'SoftwareApplication',
-      name: project.title,
-      description: project.short_description,
-      url: window.location.href,
-      applicationCategory: 'ArtificialIntelligence',
-      ...(project.thumbnail_path  ? { image: window.location.origin + project.thumbnail_path } : {}),
-      ...(project.github_url      ? { codeRepository: project.github_url } : {}),
-      ...(project.demo_url        ? { installUrl: project.demo_url } : {}),
-      ...(project.published_at    ? { datePublished: project.published_at.split('T')[0] } : {}),
-      ...(project.technologies?.length ? {
-        applicationSubCategory: project.technologies.map(t => t.name).join(', ')
-      } : {}),
-    });
-  }
-
   // ---- Icons ----
   const ICON = {
     github: '<svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M12 .5C5.65.5.5 5.65.5 12c0 5.08 3.29 9.39 7.86 10.91.57.1.78-.25.78-.55v-2.17c-3.2.7-3.88-1.36-3.88-1.36-.52-1.33-1.28-1.69-1.28-1.69-1.04-.71.08-.7.08-.7 1.15.08 1.76 1.18 1.76 1.18 1.03 1.76 2.7 1.25 3.36.95.1-.75.4-1.25.73-1.54-2.55-.29-5.24-1.28-5.24-5.69 0-1.26.45-2.29 1.18-3.09-.12-.29-.51-1.46.11-3.04 0 0 .96-.31 3.15 1.18a10.9 10.9 0 015.74 0c2.19-1.49 3.15-1.18 3.15-1.18.62 1.58.23 2.75.11 3.04.74.8 1.18 1.83 1.18 3.09 0 4.42-2.7 5.39-5.27 5.67.42.36.78 1.07.78 2.16v3.2c0 .31.21.66.79.55A10.52 10.52 0 0023.5 12C23.5 5.65 18.35.5 12 .5z"/></svg>',
@@ -96,6 +45,7 @@
     } else {
       catEl.style.display = 'none';
     }
+    document.getElementById('banner-status').innerHTML = Portfolio.statusBadge(p);
 
     document.getElementById('banner-title').textContent = p.title;
     document.getElementById('banner-desc').textContent = p.short_description;
@@ -193,7 +143,7 @@
   }
 
   function toEmbedUrl(url) {
-    const yt = url.match(/(?:youtu\.be\/|youtube\.com\/watch\?v=)([\w-]+)/);
+    const yt = url.match(/(?:youtu\.be\/|youtube\.com\/(?:watch\?(?:.*&)?v=|shorts\/|embed\/|live\/))([\w-]+)/);
     if (yt) return `https://www.youtube.com/embed/${yt[1]}`;
     const vimeo = url.match(/vimeo\.com\/(\d+)/);
     if (vimeo) return `https://player.vimeo.com/video/${vimeo[1]}`;
@@ -242,6 +192,7 @@
     let html = '';
 
     html += richTextBlock('Overview', p.overview);
+    html += richTextBlock('My Role', p.my_role);
     html += richTextBlock('Problem Statement', p.problem_statement);
     html += richTextBlock('Dataset Information', p.dataset_info);
     html += richTextBlock('Methodology', p.methodology);
@@ -257,6 +208,7 @@
       html += `</div>`;
     }
 
+    html += richTextBlock('What I Learned', p.key_learnings);
     html += galleryBlock(p.images);
     html += videosBlock(p.videos);
     html += timelineBlock(p.timeline);
@@ -310,12 +262,12 @@
     }
 
     // Project info
+    const STATUS = { completed: 'Completed', ongoing: 'Ongoing', planned: 'Planned' };
     const infoRows = [];
+    infoRows.push(['Status', STATUS[p.project_status] || 'Completed']);
+    if (p.started_on) infoRows.push(['Started', Portfolio.formatMonth(p.started_on)]);
+    if (p.project_status === 'completed' && p.completed_on) infoRows.push(['Completed', Portfolio.formatMonth(p.completed_on)]);
     if (p.category) infoRows.push(['Category', p.category]);
-    if (p.published_at) {
-      const date = new Date(p.published_at);
-      infoRows.push(['Published', date.toLocaleDateString('en-US', { year: 'numeric', month: 'long' })]);
-    }
     if (infoRows.length) {
       html += `
         <div class="card sidebar-card">
@@ -335,27 +287,10 @@
   }
 
   // ---- Related projects ----
-  function projectCardHtml(p) {
-    const thumb = p.thumbnail_path
-      ? `<img src="${esc(p.thumbnail_path)}" alt="${esc(p.title)} thumbnail" loading="lazy">`
-      : `<div class="project-card__thumb-placeholder"><svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.5"><circle cx="12" cy="12" r="9"/><path d="M9 12l2 2 4-4"/></svg></div>`;
-    return `
-      <a href="/project/${esc(p.slug)}" class="card card--hover project-card">
-        <div class="project-card__thumb">
-          ${thumb}
-          ${p.category ? `<span class="project-card__category">${esc(p.category)}</span>` : ''}
-        </div>
-        <div class="project-card__body">
-          <h3 class="project-card__title">${esc(p.title)}</h3>
-          <p class="project-card__desc">${esc(p.short_description)}</p>
-        </div>
-      </a>`;
-  }
-
   function renderRelated(related) {
     if (!related || !related.length) return;
     document.getElementById('related-section').style.display = 'block';
-    document.getElementById('related-grid').innerHTML = related.map(projectCardHtml).join('');
+    document.getElementById('related-grid').innerHTML = related.map((p) => Portfolio.projectCard(p)).join('');
   }
 
   // ---- Lightbox ----
@@ -376,31 +311,8 @@
     if (e.key === 'Escape') closeLightbox();
   });
 
-  // ---- Settings (footer etc.) ----
-  async function applyFooterSettings() {
-    try {
-      const { settings } = await api.getPublicSettings();
-      document.querySelectorAll('[data-settings-text]').forEach((el) => {
-        const key = el.getAttribute('data-settings-text');
-        if (settings[key]) el.textContent = settings[key];
-      });
-      document.querySelectorAll('[data-settings-href]').forEach((el) => {
-        const key = el.getAttribute('data-settings-href');
-        const value = settings[key];
-        if (!value) return;
-        const prefix = el.getAttribute('data-href-prefix') || '';
-        el.setAttribute('href', prefix + value);
-      });
-    } catch (err) {
-      console.error('Failed to load footer settings:', err);
-    }
-  }
-
   // ---- Boot ----
   (async function init() {
-    document.querySelector('[data-current-year]').textContent = new Date().getFullYear();
-    applyFooterSettings();
-
     const slug = getSlugFromUrl();
     if (!slug) { setState('not-found'); return; }
 
@@ -408,7 +320,6 @@
 
     try {
       const { project } = await api.getProjectBySlug(slug);
-      updateMeta(project);
       renderBanner(project);
       renderContent(project);
       renderSidebar(project);

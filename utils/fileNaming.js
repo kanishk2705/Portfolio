@@ -3,6 +3,7 @@
 
 const path   = require('path');
 const crypto = require('crypto');
+const env    = require('../config/env');
 
 /**
  * Sanitise the original filename's stem (not extension) so it's safe to use
@@ -36,15 +37,14 @@ function uniqueFilename(originalname) {
 
 /**
  * Resolve the public URL path for an uploaded file given its storage path.
- * Strips the leading "uploads/" and normalises separators so it's safe
+ * Makes it relative to UPLOADS_PATH and normalises separators so it is safe
  * to store in the DB and serve back to the client.
  *
- *  "/home/claude/.../uploads/images/foo.png"  →  "/uploads/images/foo.png"
+ *  "<UPLOADS_PATH>/images/foo.png"  →  "/uploads/images/foo.png"
  */
 function publicPath(absolutePath) {
-  const uploadsIndex = absolutePath.replace(/\\/g, '/').lastIndexOf('/uploads/');
-  if (uploadsIndex === -1) return absolutePath;
-  return absolutePath.slice(uploadsIndex);
+  const relative = path.relative(path.resolve(env.UPLOADS_PATH), absolutePath);
+  return '/uploads/' + relative.split(path.sep).join('/');  // forward slashes on Windows too
 }
 
 module.exports = { uniqueFilename, publicPath };

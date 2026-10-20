@@ -33,9 +33,10 @@ const api = {
     return this.get(`/projects/featured?limit=${limit}`);
   },
 
-  getProjects({ category, search, page = 1, limit = 12 } = {}) {
+  getProjects({ category, status, search, page = 1, limit = 12 } = {}) {
     const params = new URLSearchParams();
     if (category && category !== 'all') params.set('category', category);
+    if (status && status !== 'all') params.set('status', status);
     if (search) params.set('search', search);
     params.set('page', page);
     params.set('limit', limit);
@@ -56,6 +57,14 @@ const api = {
 
   getCertificates() {
     return this.get('/certificates');
+  },
+
+  getEducation() {
+    return this.get('/education');
+  },
+
+  getExperience() {
+    return this.get('/experience');
   },
 
   getPublicSettings() {

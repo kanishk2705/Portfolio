@@ -8,6 +8,8 @@
 //  - New/Edit project drawer with all fields
 //  - Categories management
 //  - Certificates management
+//  - Skills management (homepage skill cards)
+//  - Journey editor (homepage timeline)
 //  - Settings editor
 //  - Toast notification system
 //  - Sidebar mobile toggle
@@ -43,25 +45,104 @@
       : `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg> ${esc(message)}`;
     toastTimer = setTimeout(() => toastEl.classList.remove('is-visible'), 3500);
   }
+  window.showToast = showToast;  // used by uploader.js for upload errors
 
   // ---- Confirm dialog (tiny inline modal) ----
-  function confirmAction(message) {
+  function confirmAction(message, { title = 'Are you sure?', okLabel = 'Delete', danger = true } = {}) {
     return new Promise((resolve) => {
       const overlay = document.createElement('div');
-      overlay.style.cssText = `position:fixed;inset:0;background:var(--bg-overlay);z-index:9000;display:flex;align-items:center;justify-content:center;padding:var(--space-6)`;
+      overlay.className = 'admin-modal';
       overlay.innerHTML = `
         <div class="card" style="max-width:380px;width:100%;padding:var(--space-8);">
-          <h3 style="font-size:var(--text-lg);margin-bottom:var(--space-3);">Are you sure?</h3>
+          <h3 style="font-size:var(--text-lg);margin-bottom:var(--space-3);">${esc(title)}</h3>
           <p style="color:var(--text-secondary);font-size:var(--text-sm);margin-bottom:var(--space-6);">${esc(message)}</p>
           <div style="display:flex;gap:var(--space-3);justify-content:flex-end;">
             <button class="btn btn--secondary" id="confirm-cancel">Cancel</button>
-            <button class="btn btn--primary" style="background:var(--danger);border:none;" id="confirm-ok">Delete</button>
+            <button class="btn btn--primary" ${danger ? 'style="background:var(--danger);border:none;"' : ''} id="confirm-ok">${esc(okLabel)}</button>
           </div>
         </div>`;
       document.body.appendChild(overlay);
       overlay.querySelector('#confirm-cancel').onclick = () => { overlay.remove(); resolve(false); };
       overlay.querySelector('#confirm-ok').onclick    = () => { overlay.remove(); resolve(true); };
     });
+  }
+
+  // ---- Repeatable rows editor (project timeline, homepage journey) ----
+  // fields: [{ key, label, type: 'text'|'textarea'|'select', options, placeholder, wide }]
+  // Returns { getItems() } — rows whose fields are all blank are dropped.
+  function repeatableList(container, { fields, items = [], addLabel = '+ Add item', emptyText = 'Nothing added yet.' }) {
+    const rows = items.map((item) => ({ ...item }));
+
+    function fieldHtml(f, value, rowIdx) {
+      const id = `rl-${f.key}-${rowIdx}-${Math.random().toString(36).slice(2, 7)}`;
+      const common = `class="${f.type === 'textarea' ? 'form-textarea' : f.type === 'select' ? 'form-select' : 'form-input'}" id="${id}" data-field="${f.key}" data-row="${rowIdx}"`;
+      let control;
+      if (f.type === 'textarea') {
+        control = `<textarea ${common} rows="2" placeholder="${esc(f.placeholder || '')}">${esc(value)}</textarea>`;
+      } else if (f.type === 'select') {
+        const opts = [...f.options];
+        if (value && !opts.includes(value)) opts.push(value);  // keep custom values
+        control = `<select ${common}>${opts.map((o) => `<option ${o === value ? 'selected' : ''}>${esc(o)}</option>`).join('')}</select>`;
+      } else {
+        control = `<input ${common} value="${esc(value)}" placeholder="${esc(f.placeholder || '')}">`;
+      }
+      return `<div class="repeat-row__field ${f.wide ? 'repeat-row__field--wide' : ''}"><label class="form-label" for="${id}">${f.label}</label>${control}</div>`;
+    }
+
+    function render() {
+      container.innerHTML = `
+        <div class="repeat-list">
+          ${rows.length ? rows.map((row, i) => `
+            <div class="repeat-row">
+              <div class="repeat-row__fields">${fields.map((f) => fieldHtml(f, row[f.key] ?? '', i)).join('')}</div>
+              <div class="repeat-row__actions">
+                <button type="button" class="btn btn--ghost btn--sm" data-move="-1" data-row="${i}" title="Move up" ${i === 0 ? 'disabled' : ''}>↑</button>
+                <button type="button" class="btn btn--ghost btn--sm" data-move="1" data-row="${i}" title="Move down" ${i === rows.length - 1 ? 'disabled' : ''}>↓</button>
+                <button type="button" class="btn btn--ghost btn--sm repeat-row__remove" data-remove="${i}" title="Remove">✕</button>
+              </div>
+            </div>
+          `).join('') : `<p class="repeat-list__empty">${esc(emptyText)}</p>`}
+          <button type="button" class="btn btn--secondary btn--sm repeat-list__add">${esc(addLabel)}</button>
+        </div>`;
+
+      container.querySelectorAll('[data-field]').forEach((el) => {
+        el.addEventListener('input', () => { rows[+el.dataset.row][el.dataset.field] = el.value; });
+      });
+      container.querySelectorAll('[data-move]').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          const i = +btn.dataset.row, j = i + +btn.dataset.move;
+          [rows[i], rows[j]] = [rows[j], rows[i]];
+          render();
+        });
+      });
+      container.querySelectorAll('[data-remove]').forEach((btn) => {
+        btn.addEventListener('click', () => { rows.splice(+btn.dataset.remove, 1); render(); });
+      });
+      container.querySelector('.repeat-list__add').addEventListener('click', () => {
+        rows.push(Object.fromEntries(fields.map((f) => [f.key, f.type === 'select' ? f.options[0] : ''])));
+        render();
+        container.querySelectorAll('.repeat-row')[rows.length - 1]?.querySelector('input, textarea')?.focus();
+      });
+    }
+
+    render();
+    return {
+      getItems() {
+        return rows
+          .map((row) => Object.fromEntries(fields.map((f) => [f.key, String(row[f.key] ?? '').trim()])))
+          .filter((row) => fields.some((f) => f.type !== 'select' && row[f.key]));
+      },
+    };
+  }
+
+  // ---- Small modal shell shared by the skill / category / cert forms ----
+  function openModal(innerHtml, { maxWidth = 440 } = {}) {
+    const overlay = document.createElement('div');
+    overlay.className = 'admin-modal';
+    overlay.innerHTML = `<div class="card admin-modal__card" style="max-width:${maxWidth}px;">${innerHtml}</div>`;
+    document.body.appendChild(overlay);
+    overlay.addEventListener('click', (e) => { if (e.target === overlay) overlay.remove(); });
+    return overlay;
   }
 
   // ============================================================
@@ -84,7 +165,7 @@
   // ============================================================
   // SECTION ROUTING (hash-based)
   // ============================================================
-  const SECTIONS = ['dashboard', 'projects', 'categories', 'certificates', 'settings'];
+  const SECTIONS = ['dashboard', 'projects', 'categories', 'certificates', 'skills', 'research', 'education', 'experience', 'journey', 'settings'];
   const sectionLoaders = {};  // registered below per section
 
   function getActiveSection() {
@@ -103,7 +184,7 @@
       link.classList.toggle('is-active', target === name);
     });
 
-    const titles = { dashboard: 'Dashboard', projects: 'Projects', categories: 'Categories', certificates: 'Certifications', settings: 'Site Settings' };
+    const titles = { dashboard: 'Dashboard', projects: 'Projects', categories: 'Categories', certificates: 'Certifications', skills: 'Skills', research: 'Research Interests', education: 'Education', experience: 'Experience', journey: 'Journey', settings: 'Site Settings' };
     document.getElementById('topbar-title').textContent = titles[name] || 'Dashboard';
 
     if (sectionLoaders[name]) sectionLoaders[name]();
@@ -428,11 +509,14 @@
   const publishBtn    = document.getElementById('publish-btn');
 
   let editingProjectId = null;
+  let editingProject   = null;
   let allCategories    = [];
+  let projectOptions   = [];
 
   // Active editor instances (destroyed on drawer close)
   let _editors   = {};
   let _uploaders = {};
+  let _timeline  = null;
 
   async function openProjectDrawer(projectId = null) {
     editingProjectId = projectId;
@@ -443,11 +527,15 @@
     Object.values(_uploaders).forEach(u => {}); // uploaders are DOM-bound, cleared by innerHTML reset
     _editors = {}; _uploaders = {};
 
-    // Load categories for select
+    // Load categories (select) and other projects (related picker)
     try {
-      const { categories } = await adminApi.get('/api/admin/categories');
+      const [{ categories }, { projects }] = await Promise.all([
+        adminApi.get('/api/admin/categories'),
+        adminApi.get('/api/admin/projects/options'),
+      ]);
       allCategories = categories;
-    } catch { allCategories = []; }
+      projectOptions = projects.filter((p) => p.id !== projectId);
+    } catch { allCategories = []; projectOptions = []; }
 
     let project = null;
     if (projectId) {
@@ -456,6 +544,7 @@
         project = res.project;
       } catch (err) { showToast(`Failed to load project: ${err.message}`, 'error'); return; }
     }
+    editingProject = project;
 
     drawerForm.innerHTML = buildProjectForm(project);
     wireDrawerForm(project);
@@ -470,15 +559,83 @@
 
   function closeDrawer() {
     Object.values(_editors).forEach(e => e?.destroy?.());
-    _editors = {}; _uploaders = {};
+    _editors = {}; _uploaders = {}; _timeline = null;
     drawer.style.display = 'none';
     document.body.style.overflow = '';
     editingProjectId = null;
+    editingProject = null;
   }
 
   drawerClose.addEventListener('click', closeDrawer);
   drawerBackdrop.addEventListener('click', closeDrawer);
   document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && drawer.style.display !== 'none') closeDrawer(); });
+
+  // Write-up sections, in the order they appear on the project page
+  const PROJECT_RICH_FIELDS = [
+    { id: 'overview',               label: 'Overview',               placeholder: 'What the project is, in a few sentences…' },
+    { id: 'my_role',                label: 'My Role',                placeholder: 'What you personally did — especially in team projects…' },
+    { id: 'problem_statement',      label: 'Problem Statement',      placeholder: 'What problem does this solve, and why does it matter?' },
+    { id: 'dataset_info',           label: 'Dataset Information',    placeholder: 'Source, size, features, preprocessing…' },
+    { id: 'methodology',            label: 'Methodology',            placeholder: 'Your approach, models and why you chose them…' },
+    { id: 'implementation_details', label: 'Implementation Details', placeholder: 'Architecture, libraries, key decisions…' },
+    { id: 'results',                label: 'Results',                placeholder: 'What you found — with numbers where possible…' },
+    { id: 'key_learnings',          label: 'What I Learned',         placeholder: 'Skills gained, mistakes made, what you would do differently…' },
+    { id: 'future_improvements',    label: 'Future Improvements',    placeholder: 'What comes next?' },
+  ];
+
+  // ---- Import from GitHub: fill the open form from a repo (nothing is saved) ----
+  async function importFromGithub() {
+    const input = document.getElementById('pf-import-url');
+    const btn   = document.getElementById('pf-import-btn');
+    const notes = document.getElementById('pf-import-notes');
+    const url   = input.value.trim();
+    if (!url) { showToast('Paste a GitHub repository URL first.', 'error'); return; }
+
+    const hasContent = document.getElementById('pf-short-desc').value.trim()
+      || PROJECT_RICH_FIELDS.some(({ id }) => _editors[id]?.getHtml());
+    if (hasContent && !await confirmAction(
+      'Importing replaces the description, links, tech stack, tags and any write-up sections found in the README. Your other fields stay as they are.',
+      { title: 'Replace with GitHub content?', okLabel: 'Import', danger: false },
+    )) return;
+
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner"></span>';
+    try {
+      const { project: d, notes: importNotes } = await adminApi.post('/api/admin/projects/import/github', { url });
+      const set = (id, value) => {
+        const el = document.getElementById(id);
+        if (el && value != null && value !== '') { el.value = value; el.dispatchEvent(new Event('input')); }
+      };
+
+      set('pf-title', d.title);
+      set('pf-short-desc', d.short_description);
+      set('pf-github', d.github_url);
+      set('pf-demo', d.demo_url);
+      if (d.technologies?.length) set('pf-tech', d.technologies.join(', '));
+      if (d.tags?.length) set('pf-tags', d.tags.join(', '));
+      if (!document.getElementById('pf-started').value) set('pf-started', d.started_on);
+      if (document.getElementById('pf-status').value === 'completed' && !document.getElementById('pf-completed').value) {
+        set('pf-completed', d.last_activity_on);
+      }
+      PROJECT_RICH_FIELDS.forEach(({ id }) => { if (d[id]) _editors[id]?.setHtml(d[id]); });
+      if (d.thumbnail_path && !_uploaders.thumbnail?.getPath()) _uploaders.thumbnail?.setPath(d.thumbnail_path);
+
+      const filled = PROJECT_RICH_FIELDS.filter(({ id }) => d[id]).map(({ label }) => label);
+      const allNotes = [
+        filled.length ? `Filled: ${filled.join(', ')}.` : 'No write-up sections were found in the README.',
+        ...importNotes,
+        'Check every field before saving — especially the description, status and dates.',
+      ];
+      notes.innerHTML = allNotes.map((n) => `<li>${esc(n)}</li>`).join('');
+      notes.hidden = false;
+      showToast('Imported from GitHub. Review, then save.');
+    } catch (err) {
+      showToast(err.message, 'error');
+    } finally {
+      btn.disabled = false;
+      btn.textContent = 'Import';
+    }
+  }
 
   // ---- Build drawer HTML (tabs + both panels) ----
   function buildProjectForm(p) {
@@ -490,15 +647,7 @@
     const tagValue  = (p?.tags || []).map((t) => t.name).join(', ');
     const metricsValue = (p?.metrics || []).map((m) => `${m.metric_label}: ${m.metric_value}`).join('\n');
 
-    const RICH_FIELDS = [
-      { id: 'overview',               label: 'Overview',                placeholder: 'Project overview…' },
-      { id: 'problem_statement',      label: 'Problem Statement',       placeholder: 'What problem does this solve?' },
-      { id: 'dataset_info',           label: 'Dataset Information',     placeholder: 'Describe the dataset(s) used…' },
-      { id: 'methodology',            label: 'Methodology',             placeholder: 'Explain the approach…' },
-      { id: 'implementation_details', label: 'Implementation Details',  placeholder: 'Architecture, libraries, key decisions…' },
-      { id: 'results',                label: 'Results',                 placeholder: 'What did you achieve?' },
-      { id: 'future_improvements',    label: 'Future Improvements',     placeholder: 'What comes next?' },
-    ];
+    const status = p?.project_status || 'completed';
 
     return `
       <!-- Tab buttons -->
@@ -510,6 +659,16 @@
       <!-- ══ CONTENT TAB ══ -->
       <div class="drawer-tab-panel is-active" data-panel="content">
         <div style="display:flex;flex-direction:column;gap:var(--space-5);">
+
+          <!-- Import from GitHub -->
+          <div class="import-panel">
+            <label class="form-label" for="pf-import-url">Import from GitHub <span class="form-label__hint">(optional — fills the form from a public repo's README; nothing is saved until you click Save)</span></label>
+            <div class="import-panel__row">
+              <input class="form-input" id="pf-import-url" type="url" placeholder="https://github.com/username/repository" value="${esc(p?.github_url || '')}">
+              <button type="button" class="btn btn--secondary" id="pf-import-btn">Import</button>
+            </div>
+            <ul class="import-panel__notes" id="pf-import-notes" hidden></ul>
+          </div>
 
           <!-- Basic info -->
           <div>
@@ -539,10 +698,35 @@
             </div>
           </div>
 
+          <!-- Project status -->
+          <div>
+            <div style="font-family:var(--font-mono);font-size:10px;text-transform:uppercase;letter-spacing:0.08em;color:var(--text-tertiary);margin-bottom:var(--space-4);">Project Status</div>
+            <div class="form-row">
+              <div class="form-group">
+                <label class="form-label" for="pf-status">Status</label>
+                <select class="form-select" id="pf-status">
+                  <option value="completed" ${status === 'completed' ? 'selected' : ''}>Completed</option>
+                  <option value="ongoing" ${status === 'ongoing' ? 'selected' : ''}>Ongoing</option>
+                  <option value="planned" ${status === 'planned' ? 'selected' : ''}>Planned</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label class="form-label" for="pf-started">Started <span class="form-label__hint">(month)</span></label>
+                <input class="form-input" id="pf-started" type="month" value="${esc(p?.started_on || '')}">
+              </div>
+              <div class="form-group" id="pf-completed-group" ${status === 'completed' ? '' : 'hidden'}>
+                <label class="form-label" for="pf-completed">Completed <span class="form-label__hint">(month)</span></label>
+                <input class="form-input" id="pf-completed" type="month" value="${esc(p?.completed_on || '')}">
+              </div>
+            </div>
+            <p class="form-hint">Shown as a badge on project cards ("Completed · Mar 2026", "Ongoing", "Planned"). Draft / Published (the buttons below) controls whether visitors can see the project at all.</p>
+          </div>
+
           <!-- Rich text fields -->
           <div>
             <div style="font-family:var(--font-mono);font-size:10px;text-transform:uppercase;letter-spacing:0.08em;color:var(--text-tertiary);margin-bottom:var(--space-4);">Project Write-up</div>
-            ${RICH_FIELDS.map(({ id, label, placeholder }) => `
+            <p class="form-hint">Every section is optional — empty ones are hidden on the project page.</p>
+            ${PROJECT_RICH_FIELDS.map(({ id, label }) => `
               <div class="form-group">
                 <label class="form-label">${label}</label>
                 <div id="rte-wrap-${id}" class="rte-host"></div>
@@ -587,6 +771,29 @@
               <label class="form-label" for="pf-tags">Tags <span style="color:var(--text-tertiary);font-weight:400;">(comma-separated)</span></label>
               <input class="form-input" id="pf-tags" value="${esc(tagValue)}" placeholder="healthcare, nlp, production">
             </div>
+          </div>
+
+          <!-- Build timeline -->
+          <div>
+            <div style="font-family:var(--font-mono);font-size:10px;text-transform:uppercase;letter-spacing:0.08em;color:var(--text-tertiary);margin-bottom:var(--space-2);">Build Timeline</div>
+            <p class="form-hint">Milestones shown on the project page, e.g. "Week 1 — Data collection".</p>
+            <div id="pf-timeline"></div>
+          </div>
+
+          <!-- Related projects -->
+          <div>
+            <div style="font-family:var(--font-mono);font-size:10px;text-transform:uppercase;letter-spacing:0.08em;color:var(--text-tertiary);margin-bottom:var(--space-2);">Related Projects</div>
+            <p class="form-hint">Pick up to 3 to show at the bottom of the project page. If none are picked, published projects from the same category are shown.</p>
+            ${projectOptions.length ? `
+              <div class="check-list" id="pf-related">
+                ${projectOptions.map((o) => `
+                  <label class="check-list__item">
+                    <input type="checkbox" value="${o.id}" ${(p?.related_ids || []).includes(o.id) ? 'checked' : ''}>
+                    <span>${esc(o.title)}</span>
+                    ${o.status !== 'published' ? '<span class="status-pill status-pill--draft">draft</span>' : ''}
+                  </label>
+                `).join('')}
+              </div>` : '<p class="repeat-list__empty">No other projects yet.</p>'}
           </div>
 
           <!-- Options -->
@@ -695,28 +902,44 @@
     slugInput.addEventListener('input', () => { slugInput.dataset.auto = 'false'; });
 
     // ── Rich text editors ──
-    const RICH_FIELDS = [
-      'overview', 'problem_statement', 'dataset_info',
-      'methodology', 'implementation_details', 'results', 'future_improvements',
-    ];
-    const PLACEHOLDERS = {
-      overview: 'Project overview…',
-      problem_statement: 'What problem does this solve?',
-      dataset_info: 'Describe the dataset(s) used…',
-      methodology: 'Explain the approach…',
-      implementation_details: 'Architecture, libraries, key decisions…',
-      results: 'What did you achieve?',
-      future_improvements: 'What comes next?',
-    };
-
-    RICH_FIELDS.forEach((field) => {
-      const host = document.getElementById(`rte-wrap-${field}`);
+    PROJECT_RICH_FIELDS.forEach(({ id, placeholder }) => {
+      const host = document.getElementById(`rte-wrap-${id}`);
       if (!host) return;
-      _editors[field] = Editor.create(host, {
-        placeholder: PLACEHOLDERS[field],
-        initialHtml: p?.[field] || '',
-      });
+      _editors[id] = Editor.create(host, { placeholder, initialHtml: p?.[id] || '' });
     });
+
+    // ── Completion month only applies to completed projects ──
+    const statusSelect = document.getElementById('pf-status');
+    statusSelect.addEventListener('change', () => {
+      document.getElementById('pf-completed-group').hidden = statusSelect.value !== 'completed';
+    });
+
+    // ── Import from GitHub ──
+    document.getElementById('pf-import-btn').addEventListener('click', importFromGithub);
+    document.getElementById('pf-import-url').addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') { e.preventDefault(); importFromGithub(); }
+    });
+
+    // ── Build timeline ──
+    _timeline = repeatableList(document.getElementById('pf-timeline'), {
+      fields: [
+        { key: 'date_label',  label: 'When',        placeholder: 'Week 1 / Mar 2026' },
+        { key: 'title',       label: 'Milestone',   placeholder: 'Data collection & cleaning', wide: true },
+        { key: 'description', label: 'Details',     type: 'textarea', placeholder: 'Optional', wide: true },
+      ],
+      items: (p?.timeline || []).map((e) => ({ date_label: e.date_label, title: e.title, description: e.description })),
+      addLabel: '+ Add milestone',
+      emptyText: 'No milestones yet.',
+    });
+
+    // ── Related projects: cap at 3 ──
+    const relatedBoxes = drawerForm.querySelectorAll('#pf-related input[type="checkbox"]');
+    relatedBoxes.forEach((box) => box.addEventListener('change', () => {
+      if ([...relatedBoxes].filter((b) => b.checked).length > 3) {
+        box.checked = false;
+        showToast('Pick at most 3 related projects.', 'error');
+      }
+    }));
 
     // ── Upload zones ──
     _uploaders.thumbnail = Uploader.singleImage(
@@ -766,9 +989,17 @@
 
     // Rich text fields from editor instances
     const richFields = {};
-    ['overview','problem_statement','dataset_info','methodology','implementation_details','results','future_improvements'].forEach((f) => {
-      richFields[f] = _editors[f] ? _editors[f].getHtml() : getValue(`pf-${f}`) || null;
+    PROJECT_RICH_FIELDS.forEach(({ id }) => {
+      richFields[id] = _editors[id] ? _editors[id].getHtml() : null;
     });
+
+    const projectStatus = document.getElementById('pf-status').value;
+    const startedOn   = getValue('pf-started');
+    const completedOn = projectStatus === 'completed' ? getValue('pf-completed') : null;
+    if (startedOn && completedOn && completedOn < startedOn) {
+      showToast('The completion month is before the start month.', 'error');
+      return null;
+    }
 
     // Metrics (text → array)
     const metricsRaw = getValue('pf-metrics') || '';
@@ -777,6 +1008,22 @@
       .filter(Boolean);
 
     const parseCsv = (id) => (getValue(id)||'').split(',').map(s=>s.trim()).filter(Boolean);
+
+    // Gallery keeps only paths; carry over alt text / captions of images that stay
+    const oldImages = new Map((editingProject?.images || []).map((img) => [img.file_path, img]));
+    const images = (_uploaders.gallery?.getPaths() || []).map((path) => ({
+      file_path: path,
+      alt_text:  oldImages.get(path)?.alt_text || null,
+      caption:   oldImages.get(path)?.caption  || null,
+    }));
+    const videos = (_uploaders.video?.getVideos() || []).map((v) => ({
+      source_type:  v.source_type,
+      file_path:    v.file_path || null,
+      external_url: v.external_url || null,
+      title:        v.title || null,
+    }));
+    const documents = (_uploaders.doc?.getDocs() || []).map((d) => ({ file_path: d.file_path, label: d.label || null }));
+    const relatedIds = [...drawerForm.querySelectorAll('#pf-related input:checked')].map((b) => parseInt(b.value, 10));
 
     return {
       title,
@@ -797,10 +1044,18 @@
       is_featured:        document.getElementById('pf-featured')?.checked ? 1 : 0,
       display_order:      parseInt(document.getElementById('pf-order')?.value)||0,
       status,
+      project_status: projectStatus,
+      started_on:     startedOn,
+      completed_on:   completedOn,
 
       technologies: parseCsv('pf-tech'),
       tags:         parseCsv('pf-tags'),
       metrics,
+      timeline:     _timeline ? _timeline.getItems() : [],
+      images,
+      videos,
+      documents,
+      related_ids:  relatedIds,
     };
   }
 
@@ -915,7 +1170,7 @@
 
   function showCategoryForm(cat = null) {
     const overlay = document.createElement('div');
-    overlay.style.cssText = `position:fixed;inset:0;background:var(--bg-overlay);z-index:9000;display:flex;align-items:center;justify-content:center;padding:var(--space-6)`;
+    overlay.className = 'admin-modal';
     overlay.innerHTML = `
       <div class="card" style="max-width:440px;width:100%;padding:var(--space-8);">
         <h3 style="font-size:var(--text-xl);margin-bottom:var(--space-6);">${cat ? 'Edit Category' : 'New Category'}</h3>
@@ -1030,7 +1285,7 @@
 
   function showCertForm(cert = null) {
     const overlay = document.createElement('div');
-    overlay.style.cssText = `position:fixed;inset:0;background:var(--bg-overlay);z-index:9000;display:flex;align-items:center;justify-content:center;padding:var(--space-6)`;
+    overlay.className = 'admin-modal';
     overlay.innerHTML = `
       <div class="card" style="max-width:440px;width:100%;padding:var(--space-8);">
         <h3 style="font-size:var(--text-xl);margin-bottom:var(--space-6);">${cert ? 'Edit Certificate' : 'Add Certificate'}</h3>
@@ -1061,6 +1316,390 @@
   }
 
   // ============================================================
+  // SECTION: SKILLS (homepage skill cards)
+  // ============================================================
+  // Icon keys must match the ICONS map in home.js
+  const SKILL_ICONS = [
+    ['ml', 'Machine Learning'], ['dl', 'Deep Learning'], ['genai', 'Generative AI'],
+    ['nlp', 'NLP / Chat'], ['ds', 'Data Science / Charts'], ['de', 'Data Engineering / Database'],
+    ['mlops', 'MLOps / Settings'], ['python', 'Python / Code'], ['cloud', 'Cloud'],
+  ];
+
+  sectionLoaders.skills = async function loadSkills() {
+    const panel = document.getElementById('skills-panel-content');
+    panel.innerHTML = `
+      <div class="admin-section-head">
+        <div>
+          <h2>Skills</h2>
+          <p>The skill cards in the "Technical Skills" section of your homepage. Each card shows its skills as tags, in the order set here.</p>
+        </div>
+        <button class="btn btn--primary" id="skillcat-add-btn">+ Add Skill Card</button>
+      </div>
+      <div id="skill-list"><div class="skeleton" style="height:200px;border-radius:var(--radius-lg);"></div></div>
+    `;
+    document.getElementById('skillcat-add-btn').addEventListener('click', () => showSkillCategoryForm());
+    await renderSkillList();
+  };
+
+  async function renderSkillList(skillCategories) {
+    const el = document.getElementById('skill-list');
+    if (!el) return;
+    try {
+      if (!skillCategories) ({ skillCategories } = await adminApi.get('/api/admin/skills'));
+      if (!skillCategories.length) {
+        el.innerHTML = `<div class="card empty-state"><h3>No skill cards</h3><p>Add a card such as "Machine Learning", then add skills to it.</p></div>`;
+        return;
+      }
+      el.innerHTML = skillCategories.map((cat) => `
+        <div class="card skill-admin-card">
+          <div class="skill-admin-card__head">
+            <div>
+              <h3>${esc(cat.name)}</h3>
+              <span class="skill-admin-card__meta">Order ${cat.sort_order} · ${cat.skills.length} skill${cat.skills.length === 1 ? '' : 's'}</span>
+            </div>
+            <div class="skill-admin-card__actions">
+              <button class="btn btn--secondary btn--sm" data-add-skill="${cat.id}">+ Skill</button>
+              <button class="btn btn--ghost btn--sm" data-edit-cat="${cat.id}">Edit</button>
+              <button class="btn btn--ghost btn--sm" data-del-cat="${cat.id}" style="color:var(--danger);">Delete</button>
+            </div>
+          </div>
+          ${cat.skills.length ? `
+            <div class="skill-admin-list">
+              ${cat.skills.map((s) => `
+                <div class="skill-admin-row">
+                  <span class="skill-admin-row__name">${esc(s.name)}</span>
+                  <button class="btn btn--ghost btn--sm" data-edit-skill="${s.id}">Edit</button>
+                  <button class="btn btn--ghost btn--sm" data-del-skill="${s.id}" style="color:var(--danger);">✕</button>
+                </div>
+              `).join('')}
+            </div>` : '<p class="repeat-list__empty">No skills in this card yet.</p>'}
+        </div>
+      `).join('');
+
+      const findCat   = (id) => skillCategories.find((c) => c.id === +id);
+      const findSkill = (id) => skillCategories.flatMap((c) => c.skills).find((s) => s.id === +id);
+
+      el.querySelectorAll('[data-add-skill]').forEach((b) => b.addEventListener('click', () =>
+        showSkillForm(null, skillCategories, +b.dataset.addSkill)));
+      el.querySelectorAll('[data-edit-cat]').forEach((b) => b.addEventListener('click', () =>
+        showSkillCategoryForm(findCat(b.dataset.editCat))));
+      el.querySelectorAll('[data-edit-skill]').forEach((b) => b.addEventListener('click', () =>
+        showSkillForm(findSkill(b.dataset.editSkill), skillCategories)));
+      el.querySelectorAll('[data-del-cat]').forEach((b) => b.addEventListener('click', async () => {
+        const cat = findCat(b.dataset.delCat);
+        if (!await confirmAction(`Delete the "${cat.name}" card and its ${cat.skills.length} skills?`)) return;
+        try {
+          const res = await adminApi.delete(`/api/admin/skill-categories/${cat.id}`);
+          showToast('Skill card deleted.');
+          renderSkillList(res.skillCategories);
+        } catch (err) { showToast(err.message, 'error'); }
+      }));
+      el.querySelectorAll('[data-del-skill]').forEach((b) => b.addEventListener('click', async () => {
+        const skill = findSkill(b.dataset.delSkill);
+        if (!await confirmAction(`Delete "${skill.name}"?`)) return;
+        try {
+          const res = await adminApi.delete(`/api/admin/skills/${skill.id}`);
+          showToast('Skill deleted.');
+          renderSkillList(res.skillCategories);
+        } catch (err) { showToast(err.message, 'error'); }
+      }));
+    } catch (err) {
+      el.innerHTML = `<div class="card empty-state"><h3>Failed to load skills</h3><p>${esc(err.message)}</p></div>`;
+    }
+  }
+
+  function showSkillCategoryForm(cat = null) {
+    const overlay = openModal(`
+      <h3 class="admin-modal__title">${cat ? 'Edit Skill Card' : 'New Skill Card'}</h3>
+      <div class="form-group"><label class="form-label" for="scf-name">Name *</label><input class="form-input" id="scf-name" value="${esc(cat?.name || '')}" placeholder="e.g. Machine Learning"></div>
+      <div class="form-group"><label class="form-label" for="scf-icon">Icon</label>
+        <select class="form-select" id="scf-icon">
+          ${SKILL_ICONS.map(([key, label]) => `<option value="${key}" ${cat?.icon === key ? 'selected' : ''}>${label}</option>`).join('')}
+        </select>
+      </div>
+      <div class="form-group"><label class="form-label" for="scf-order">Display Order <span class="form-label__hint">(lower = first)</span></label><input class="form-input" id="scf-order" type="number" min="0" value="${cat?.sort_order ?? 0}" style="width:100px;"></div>
+      <div class="admin-modal__actions">
+        <button class="btn btn--secondary" data-cancel>Cancel</button>
+        <button class="btn btn--primary" data-save>${cat ? 'Save' : 'Create'}</button>
+      </div>
+    `);
+    overlay.querySelector('[data-cancel]').addEventListener('click', () => overlay.remove());
+    overlay.querySelector('[data-save]').addEventListener('click', async () => {
+      const payload = {
+        name:       overlay.querySelector('#scf-name').value.trim(),
+        icon:       overlay.querySelector('#scf-icon').value,
+        sort_order: parseInt(overlay.querySelector('#scf-order').value, 10) || 0,
+      };
+      if (!payload.name) { showToast('Name is required.', 'error'); return; }
+      try {
+        const res = cat
+          ? await adminApi.put(`/api/admin/skill-categories/${cat.id}`, payload)
+          : await adminApi.post('/api/admin/skill-categories', payload);
+        showToast(cat ? 'Skill card updated.' : 'Skill card created.');
+        overlay.remove();
+        renderSkillList(res.skillCategories);
+      } catch (err) { showToast(err.message, 'error'); }
+    });
+    overlay.querySelector('#scf-name').focus();
+  }
+
+  function showSkillForm(skill, skillCategories, categoryId = null) {
+    const catId = skill?.skill_category_id ?? categoryId;
+    const overlay = openModal(`
+      <h3 class="admin-modal__title">${skill ? 'Edit Skill' : 'New Skill'}</h3>
+      <div class="form-group"><label class="form-label" for="sf-name">Name *</label><input class="form-input" id="sf-name" value="${esc(skill?.name || '')}" placeholder="e.g. PyTorch"></div>
+      <div class="form-group"><label class="form-label" for="sf-cat">Card</label>
+        <select class="form-select" id="sf-cat">
+          ${skillCategories.map((c) => `<option value="${c.id}" ${c.id === catId ? 'selected' : ''}>${esc(c.name)}</option>`).join('')}
+        </select>
+      </div>
+      <div class="form-group"><label class="form-label" for="sf-order">Display Order <span class="form-label__hint">(lower = first)</span></label><input class="form-input" id="sf-order" type="number" min="0" value="${skill?.sort_order ?? 0}" style="width:100px;"></div>
+      <div class="admin-modal__actions">
+        <button class="btn btn--secondary" data-cancel>Cancel</button>
+        <button class="btn btn--primary" data-save>${skill ? 'Save' : 'Add'}</button>
+      </div>
+    `);
+    overlay.querySelector('[data-cancel]').addEventListener('click', () => overlay.remove());
+    overlay.querySelector('[data-save]').addEventListener('click', async () => {
+      const payload = {
+        name:              overlay.querySelector('#sf-name').value.trim(),
+        skill_category_id: parseInt(overlay.querySelector('#sf-cat').value, 10),
+        proficiency:       null,  // percentages are no longer shown
+        sort_order:        parseInt(overlay.querySelector('#sf-order').value, 10) || 0,
+      };
+      if (!payload.name) { showToast('Name is required.', 'error'); return; }
+      try {
+        const res = skill
+          ? await adminApi.put(`/api/admin/skills/${skill.id}`, payload)
+          : await adminApi.post('/api/admin/skills', payload);
+        showToast(skill ? 'Skill updated.' : 'Skill added.');
+        overlay.remove();
+        renderSkillList(res.skillCategories);
+      } catch (err) { showToast(err.message, 'error'); }
+    });
+    overlay.querySelector('#sf-name').focus();
+  }
+
+  // ============================================================
+  // SECTIONS: RESEARCH INTERESTS, EDUCATION, EXPERIENCE
+  // ============================================================
+  // Each is a list edited with repeatableList and saved as a whole.
+  // Empty lists hide the matching homepage section automatically.
+
+  function listEditorPage({ panelId, title, description, saveLabel, extraHtml = '' }) {
+    const panel = document.getElementById(panelId);
+    panel.innerHTML = `
+      <div style="max-width:820px;">
+        <div class="admin-section-head">
+          <div>
+            <h2>${title}</h2>
+            <p>${description}</p>
+          </div>
+        </div>
+        ${extraHtml}
+        <div class="card" style="padding:var(--space-6);">
+          <div data-list></div>
+        </div>
+        <div class="admin-modal__actions" style="margin-top:var(--space-6);">
+          <button class="btn btn--primary" data-save>${saveLabel}</button>
+        </div>
+      </div>
+    `;
+    return panel;
+  }
+
+  async function withSaving(btn, fn) {
+    btn.disabled = true;
+    try { await fn(); } catch (err) { showToast(`Failed to save: ${err.message}`, 'error'); } finally { btn.disabled = false; }
+  }
+
+  sectionLoaders.research = async function loadResearch() {
+    const panel = document.getElementById('research-panel-content');
+    panel.innerHTML = `<div class="skeleton" style="height:400px;border-radius:var(--radius-lg);"></div>`;
+    try {
+      const { settings } = await adminApi.get('/api/admin/settings');
+      let items = [];
+      try { items = JSON.parse(settings['research.items'] || '[]'); } catch { items = []; }
+
+      listEditorPage({
+        panelId: 'research-panel-content',
+        title: 'Research Interests',
+        description: 'The areas you want to work on — shown on your homepage between About and Projects. Keep each one specific: reviewers compare this with your statement of purpose.',
+        saveLabel: 'Save Research Interests',
+        extraHtml: `
+          <div class="card" style="padding:var(--space-6);margin-bottom:var(--space-5);">
+            <div class="form-group">
+              <label class="form-label" for="ri-headline">Section Heading</label>
+              <input class="form-input" id="ri-headline" value="${esc(settings['research.headline'] || '')}" placeholder="Research Interests">
+            </div>
+            <div class="form-group" style="margin-bottom:0;">
+              <label class="form-label" for="ri-intro">Introduction <span class="form-label__hint">(optional; blank line between paragraphs)</span></label>
+              <textarea class="form-textarea" id="ri-intro" rows="3" placeholder="e.g. I am interested in how machine learning models behave when the data they see in deployment differs from their training data…">${esc(settings['research.intro'] || '')}</textarea>
+            </div>
+          </div>`,
+      });
+
+      const list = repeatableList(panel.querySelector('[data-list]'), {
+        fields: [
+          { key: 'title',       label: 'Area',        placeholder: 'e.g. Distribution shift & model reliability', wide: true },
+          { key: 'description', label: 'Description', type: 'textarea', placeholder: 'One or two sentences: what interests you and which of your projects relate to it.', wide: true },
+        ],
+        items,
+        addLabel: '+ Add research area',
+        emptyText: 'No research areas yet — the homepage section stays hidden until you add one (or an introduction).',
+      });
+
+      panel.querySelector('[data-save]').addEventListener('click', (e) => withSaving(e.currentTarget, async () => {
+        const entries = list.getItems();
+        if (entries.some((x) => !x.title)) { showToast('Every research area needs a name.', 'error'); return; }
+        await adminApi.put('/api/admin/settings', {
+          'research.headline': panel.querySelector('#ri-headline').value.trim(),
+          'research.intro':    panel.querySelector('#ri-intro').value.trim(),
+          'research.items':    JSON.stringify(entries),
+        });
+        showToast('Research interests saved.');
+      }));
+    } catch (err) {
+      panel.innerHTML = `<div class="empty-state"><h3>Failed to load</h3><p>${esc(err.message)}</p></div>`;
+    }
+  };
+
+  sectionLoaders.education = async function loadEducation() {
+    const panel = document.getElementById('education-panel-content');
+    panel.innerHTML = `<div class="skeleton" style="height:400px;border-radius:var(--radius-lg);"></div>`;
+    try {
+      const { items } = await adminApi.get('/api/admin/education');
+      listEditorPage({
+        panelId: 'education-panel-content',
+        title: 'Education',
+        description: 'Your degrees, most recent first. Shown in the "Education &amp; Experience" section of your homepage.',
+        saveLabel: 'Save Education',
+      });
+      const list = repeatableList(panel.querySelector('[data-list]'), {
+        fields: [
+          { key: 'degree',      label: 'Degree *',      placeholder: 'B.E. Computer Science and Engineering', wide: true },
+          { key: 'institution', label: 'Institution *', placeholder: 'University / college name', wide: true },
+          { key: 'location',    label: 'Location',      placeholder: 'City, Country' },
+          { key: 'grade',       label: 'Grade',         placeholder: 'CGPA 8.5 / 10 (optional)' },
+          { key: 'start_label', label: 'Start',         placeholder: 'Aug 2022' },
+          { key: 'end_label',   label: 'End',           placeholder: 'May 2026 or Expected May 2026' },
+          { key: 'highlights',  label: 'Highlights',    type: 'textarea', placeholder: 'One per line — e.g. Relevant coursework: Probability & Statistics, Machine Learning\nFinal-year project: …', wide: true },
+        ],
+        items,
+        addLabel: '+ Add degree',
+        emptyText: 'No education added yet.',
+      });
+      panel.querySelector('[data-save]').addEventListener('click', (e) => withSaving(e.currentTarget, async () => {
+        const entries = list.getItems();
+        if (entries.some((x) => !x.degree || !x.institution)) { showToast('Each entry needs a degree and an institution.', 'error'); return; }
+        await adminApi.put('/api/admin/education', { items: entries });
+        showToast('Education saved.');
+      }));
+    } catch (err) {
+      panel.innerHTML = `<div class="empty-state"><h3>Failed to load</h3><p>${esc(err.message)}</p></div>`;
+    }
+  };
+
+  const EXPERIENCE_TYPES = ['', 'Internship', 'Research', 'Full-time', 'Part-time', 'Freelance', 'Teaching', 'Volunteer'];
+
+  sectionLoaders.experience = async function loadExperience() {
+    const panel = document.getElementById('experience-panel-content');
+    panel.innerHTML = `<div class="skeleton" style="height:400px;border-radius:var(--radius-lg);"></div>`;
+    try {
+      const { items } = await adminApi.get('/api/admin/experience');
+      listEditorPage({
+        panelId: 'experience-panel-content',
+        title: 'Experience',
+        description: 'Internships, research positions and jobs, most recent first. Describe what you did and the result, one point per line.',
+        saveLabel: 'Save Experience',
+      });
+      const list = repeatableList(panel.querySelector('[data-list]'), {
+        fields: [
+          { key: 'role',             label: 'Role *',         placeholder: 'Machine Learning Intern', wide: true },
+          { key: 'organization',     label: 'Organization *', placeholder: 'Company / lab name' },
+          { key: 'organization_url', label: 'Website',        placeholder: 'https://… (optional)' },
+          { key: 'employment_type',  label: 'Type',           type: 'select', options: EXPERIENCE_TYPES },
+          { key: 'location',         label: 'Location',       placeholder: 'City / Remote' },
+          { key: 'start_label',      label: 'Start',          placeholder: 'May 2026' },
+          { key: 'end_label',        label: 'End',            placeholder: 'Jul 2026 or Present' },
+          { key: 'highlights',       label: 'What you did',   type: 'textarea', placeholder: 'One per line — e.g. Built a predictive-maintenance pipeline on sensor data…', wide: true },
+        ],
+        items,
+        addLabel: '+ Add experience',
+        emptyText: 'No experience added yet.',
+      });
+      panel.querySelector('[data-save]').addEventListener('click', (e) => withSaving(e.currentTarget, async () => {
+        const entries = list.getItems();
+        if (entries.some((x) => !x.role || !x.organization)) { showToast('Each entry needs a role and an organization.', 'error'); return; }
+        await adminApi.put('/api/admin/experience', { items: entries });
+        showToast('Experience saved.');
+      }));
+    } catch (err) {
+      panel.innerHTML = `<div class="empty-state"><h3>Failed to load</h3><p>${esc(err.message)}</p></div>`;
+    }
+  };
+
+  // ============================================================
+  // SECTION: JOURNEY (homepage timeline, stored in settings)
+  // ============================================================
+  // Category drives the coloured tag on each homepage entry
+  const JOURNEY_CATEGORIES = ['Learning Journey', 'Projects', 'Research', 'Certifications', 'Achievements', 'Experience'];
+
+  sectionLoaders.journey = async function loadJourney() {
+    const panel = document.getElementById('journey-panel-content');
+    panel.innerHTML = `<div class="skeleton" style="height:400px;border-radius:var(--radius-lg);"></div>`;
+    try {
+      const { settings } = await adminApi.get('/api/admin/settings');
+      let items = [];
+      try { items = JSON.parse(settings['timeline.items'] || '[]'); } catch { items = []; }
+
+      panel.innerHTML = `
+        <div style="max-width:820px;">
+          <div class="admin-section-head">
+            <div>
+              <h2>Journey</h2>
+              <p>The "Learning Journey &amp; Milestones" timeline on your homepage, shown top to bottom in this order.</p>
+            </div>
+          </div>
+          <div class="card" style="padding:var(--space-6);">
+            <div id="journey-list"></div>
+          </div>
+          <div class="admin-modal__actions" style="margin-top:var(--space-6);">
+            <button class="btn btn--primary" id="journey-save-btn">Save Journey</button>
+          </div>
+        </div>
+      `;
+
+      const list = repeatableList(document.getElementById('journey-list'), {
+        fields: [
+          { key: 'year',        label: 'Year',     placeholder: '2025' },
+          { key: 'category',    label: 'Type',     type: 'select', options: JOURNEY_CATEGORIES },
+          { key: 'title',       label: 'Title',    placeholder: 'Started CS Undergrad', wide: true },
+          { key: 'description', label: 'Description', type: 'textarea', wide: true },
+        ],
+        items,
+        addLabel: '+ Add milestone',
+        emptyText: 'No milestones yet — the homepage will show "Timeline coming soon".',
+      });
+
+      document.getElementById('journey-save-btn').addEventListener('click', async (e) => {
+        const btn = e.currentTarget;
+        const entries = list.getItems();
+        if (entries.some((x) => !x.title)) { showToast('Every milestone needs a title.', 'error'); return; }
+        btn.disabled = true;
+        try {
+          await adminApi.put('/api/admin/settings', { 'timeline.items': JSON.stringify(entries) });
+          showToast('Journey saved.');
+        } catch (err) {
+          showToast(`Failed to save: ${err.message}`, 'error');
+        } finally { btn.disabled = false; }
+      });
+    } catch (err) {
+      panel.innerHTML = `<div class="empty-state"><h3>Failed to load journey</h3><p>${esc(err.message)}</p></div>`;
+    }
+  };
+
+  // ============================================================
   // SECTION: SETTINGS
   // ============================================================
   sectionLoaders.settings = async function loadSettings() {
@@ -1074,25 +1713,27 @@
         {
           label: 'Site Identity',
           fields: [
-            { key: 'site.title',       label: 'Site Title',       type: 'text' },
-            { key: 'site.tagline',     label: 'Tagline',          type: 'text' },
-            { key: 'site.description', label: 'Meta Description', type: 'textarea' },
+            { key: 'site.name',        label: 'Your Name',        type: 'text', hint: 'Shown in the logo, footer and page titles.' },
+            { key: 'site.title',       label: 'Homepage Title',   type: 'text', hint: 'Browser tab and search-result title for the homepage.' },
+            { key: 'site.tagline',     label: 'Tagline',          type: 'text', hint: 'The small line above the hero headline.' },
+            { key: 'site.description', label: 'Meta Description', type: 'textarea', hint: 'Shown in search results and link previews. ~150 characters works best.' },
           ],
         },
         {
           label: 'Hero Section',
           fields: [
-            { key: 'hero.headline',            label: 'Headline',              type: 'textarea', rows: 2 },
+            { key: 'hero.headline',            label: 'Headline',              type: 'textarea', rows: 2, hint: 'Wrap words in *asterisks* to give them the gradient highlight.' },
             { key: 'hero.subheadline',         label: 'Subheadline',           type: 'textarea', rows: 2 },
-            { key: 'hero.cta_primary_label',   label: 'Primary CTA Label',     type: 'text' },
-            { key: 'hero.cta_secondary_label', label: 'Secondary CTA Label',   type: 'text' },
+            { key: 'hero.cta_primary_label',   label: 'Primary Button Label',  type: 'text', hint: 'Links to your Projects page.' },
+            { key: 'hero.cta_secondary_label', label: 'Secondary Button Label', type: 'text' },
+            { key: 'hero.cta_secondary_url',   label: 'Secondary Button Link', type: 'text', hint: 'A full URL (opens in a new tab) or a page section like #contact.' },
           ],
         },
         {
           label: 'About Section',
           fields: [
             { key: 'about.headline', label: 'Headline',   type: 'textarea', rows: 2 },
-            { key: 'about.body',     label: 'Body Text',  type: 'textarea', rows: 5 },
+            { key: 'about.body',     label: 'Body Text',  type: 'textarea', rows: 6, hint: 'Leave a blank line between paragraphs.' },
           ],
         },
         {
@@ -1101,7 +1742,26 @@
             { key: 'contact.email',      label: 'Email Address', type: 'email' },
             { key: 'contact.github',     label: 'GitHub URL',    type: 'url' },
             { key: 'contact.linkedin',   label: 'LinkedIn URL',  type: 'url' },
-            { key: 'contact.resume_url', label: 'Resume URL',    type: 'url' },
+          ],
+        },
+        {
+          label: 'CV',
+          fields: [
+            { key: 'cv.file', label: 'CV (PDF)', type: 'pdf', hint: 'Visitors download it from the CV button in the menu, the Contact section and the footer. It is always served at /cv.pdf, so that link stays the same when you upload a new version.' },
+            { key: 'contact.resume_url', label: 'External CV link (fallback)', type: 'url', hint: 'Only used while no PDF is uploaded above. Leave both empty to hide the CV links.' },
+          ],
+        },
+        {
+          label: 'Contact Section',
+          fields: [
+            { key: 'contact.headline', label: 'Heading', type: 'text', hint: "Defaults to \"Let's build something intelligent\"." },
+            { key: 'contact.body',     label: 'Message', type: 'textarea', rows: 2, hint: 'e.g. what you are looking for — graduate research positions, internships, collaborations.' },
+          ],
+        },
+        {
+          label: 'Link Preview',
+          fields: [
+            { key: 'og.image', label: 'Preview Image', type: 'image', hint: 'Shown when your site is shared on LinkedIn, WhatsApp, Slack, etc. Use 1200 × 630 px. Projects use their own thumbnail.' },
           ],
         },
         {
@@ -1112,22 +1772,34 @@
         },
       ];
 
+      const fieldId = (key) => `setting-${key.replace(/\./g, '-')}`;
+      const fieldControl = ({ key, type, rows = 3 }) => {
+        if (type === 'image')    return `<div id="${fieldId(key)}"></div>`;
+        // PDF: the hidden input carries the uploaded path into the save
+        if (type === 'pdf') return `
+          <input type="hidden" data-key="${key}" value="${esc(settings[key] || '')}">
+          <div class="file-field" id="${fieldId(key)}"></div>`;
+        if (type === 'textarea') return `<textarea class="form-textarea" id="${fieldId(key)}" data-key="${key}" rows="${rows}">${esc(settings[key] || '')}</textarea>`;
+        return `<input class="form-input" id="${fieldId(key)}" data-key="${key}" type="${type}" value="${esc(settings[key] || '')}">`;
+      };
+
       panel.innerHTML = `
         <div style="max-width:720px;">
-          <div style="margin-bottom:var(--space-6);">
-            <h2 style="font-size:var(--text-2xl);margin-bottom:var(--space-1);">Site Settings</h2>
-            <p style="color:var(--text-secondary);font-size:var(--text-sm);">Changes here update what visitors see on your portfolio — no code required.</p>
+          <div class="admin-section-head">
+            <div>
+              <h2>Site Settings</h2>
+              <p>Changes here update what visitors see on your portfolio — no code required.</p>
+            </div>
           </div>
 
           ${SETTING_GROUPS.map((group) => `
             <div class="card" style="padding:var(--space-6);margin-bottom:var(--space-5);">
               <div style="font-family:var(--font-mono);font-size:10px;text-transform:uppercase;letter-spacing:0.08em;color:var(--text-tertiary);margin-bottom:var(--space-5);">${group.label}</div>
-              ${group.fields.map(({ key, label, type, rows = 3 }) => `
+              ${group.fields.map((f) => `
                 <div class="form-group">
-                  <label class="form-label" for="setting-${key.replace(/\./g,'-')}">${label}</label>
-                  ${type === 'textarea'
-                    ? `<textarea class="form-textarea" id="setting-${key.replace(/\./g,'-')}" data-key="${key}" rows="${rows}">${esc(settings[key]||'')}</textarea>`
-                    : `<input class="form-input" id="setting-${key.replace(/\./g,'-')}" data-key="${key}" type="${type}" value="${esc(settings[key]||'')}">`}
+                  <label class="form-label" for="${fieldId(f.key)}">${f.label}</label>
+                  ${fieldControl(f)}
+                  ${f.hint ? `<p class="form-hint">${esc(f.hint)}</p>` : ''}
                 </div>
               `).join('')}
             </div>
@@ -1142,6 +1814,53 @@
         </div>
       `;
 
+      // Image settings get an upload zone instead of a text box
+      const imageUploaders = {};
+      SETTING_GROUPS.flatMap((g) => g.fields).filter((f) => f.type === 'image').forEach((f) => {
+        imageUploaders[f.key] = Uploader.singleImage(document.getElementById(fieldId(f.key)), {
+          type: f.key.replace(/\./g, '-'),
+          hint: 'PNG or JPG · 1200 × 630 px · max 8 MB',
+          initialPath: settings[f.key] || null,
+        });
+      });
+
+      // PDF settings (the CV): upload, view, replace, remove
+      SETTING_GROUPS.flatMap((g) => g.fields).filter((f) => f.type === 'pdf').forEach((f) => {
+        const host   = document.getElementById(fieldId(f.key));
+        const hidden = panel.querySelector(`input[type="hidden"][data-key="${f.key}"]`);
+
+        const render = () => {
+          const path = hidden.value;
+          host.innerHTML = `
+            ${path ? `
+              <div class="file-field__current">
+                <span>📄</span>
+                <a href="${esc(path)}" target="_blank" rel="noopener">${esc(path.split('/').pop())}</a>
+              </div>` : '<span class="form-hint" style="margin:0;">No PDF uploaded.</span>'}
+            <label class="btn btn--secondary btn--sm" style="cursor:pointer;">
+              ${path ? 'Replace PDF' : 'Upload PDF'}
+              <input type="file" accept="application/pdf,.pdf" hidden>
+            </label>
+            ${path ? '<button type="button" class="btn btn--ghost btn--sm" data-remove style="color:var(--danger);">Remove</button>' : ''}
+          `;
+          host.querySelector('input[type="file"]').addEventListener('change', async (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+            if (file.type !== 'application/pdf' && !/\.pdf$/i.test(file.name)) { showToast('Please choose a PDF file.', 'error'); return; }
+            const form = new FormData();
+            form.append('file', file);
+            try {
+              const res = await adminApi.postForm('/api/admin/upload/document', form);
+              hidden.value = res.filePath;
+              render();
+              showToast('PDF uploaded — click "Save All Settings" to publish it.');
+            } catch (err) { showToast(`Upload failed: ${err.message}`, 'error'); }
+          });
+          host.querySelector('[data-remove]')?.addEventListener('click', () => { hidden.value = ''; render(); });
+        };
+        render();
+      });
+
       document.getElementById('settings-save-btn').addEventListener('click', async () => {
         const btn = document.getElementById('settings-save-btn');
         btn.disabled = true;
@@ -1149,8 +1868,9 @@
 
         const updates = {};
         panel.querySelectorAll('[data-key]').forEach((el) => {
-          updates[el.dataset.key] = el.value;
+          updates[el.dataset.key] = el.value.trim();
         });
+        Object.entries(imageUploaders).forEach(([key, up]) => { updates[key] = up.getPath() || ''; });
 
         try {
           await adminApi.put('/api/admin/settings', updates);
@@ -1189,6 +1909,12 @@
   (async function init() {
     await guardAuth();
     activateSection(getActiveSection());
+    // Sidebar project count, whichever section the page opened on
+    if (getActiveSection() !== 'dashboard') {
+      adminApi.getDashboard()
+        .then(({ dashboard }) => { document.getElementById('badge-total').textContent = dashboard.projects.total; })
+        .catch(() => {});
+    }
   })();
 
 })();

@@ -9,6 +9,7 @@ const { getDb }  = require('../config/db');
 const Skill      = require('../models/Skill');
 const Certificate = require('../models/Certificate');
 const Category   = require('../models/Category');
+const Profile    = require('../models/Profile');
 
 // ── Public API ─────────────────────────────────────────────────
 
@@ -24,7 +25,7 @@ router.get('/projects/:slug', controller.getBySlug);
 // GET /api/categories
 router.get('/categories', (req, res, next) => {
   try {
-    res.json({ success: true, categories: Category.listAll() });
+    res.json({ success: true, categories: Category.listWithCounts() });
   } catch (err) { next(err); }
 });
 
@@ -39,6 +40,20 @@ router.get('/skills', (req, res, next) => {
 router.get('/certificates', (req, res, next) => {
   try {
     res.json({ success: true, certificates: Certificate.listAll() });
+  } catch (err) { next(err); }
+});
+
+// GET /api/education
+router.get('/education', (req, res, next) => {
+  try {
+    res.json({ success: true, items: Profile.listEducation() });
+  } catch (err) { next(err); }
+});
+
+// GET /api/experience
+router.get('/experience', (req, res, next) => {
+  try {
+    res.json({ success: true, items: Profile.listExperience() });
   } catch (err) { next(err); }
 });
 
