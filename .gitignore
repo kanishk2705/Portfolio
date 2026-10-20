@@ -30,3 +30,6 @@ npm-debug.log*
 
 # Generated SEO files (Phase 8 regenerates these on build)
 public/sitemap.xml
+
+# Static site build (npm run export / deploy)
+dist/

@@ -5,7 +5,7 @@ const path       = require('path');
 const express    = require('express');
 const router     = express.Router();
 const controller = require('../controllers/projectController');
-const { getDb }  = require('../config/db');
+const Setting    = require('../models/Setting');
 const Skill      = require('../models/Skill');
 const Certificate = require('../models/Certificate');
 const Category   = require('../models/Category');
@@ -60,14 +60,7 @@ router.get('/experience', (req, res, next) => {
 // GET /api/settings/public — subset of settings safe to expose publicly
 router.get('/settings/public', (req, res, next) => {
   try {
-    const rows = getDb().prepare(`
-      SELECT key, value FROM settings
-      WHERE key NOT LIKE 'admin.%'
-      ORDER BY key
-    `).all();
-    const settings = {};
-    for (const row of rows) settings[row.key] = row.value;
-    res.json({ success: true, settings });
+    res.json({ success: true, settings: Setting.publicAll() });
   } catch (err) { next(err); }
 });
 

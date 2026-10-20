@@ -153,6 +153,38 @@ const Project = {
     };
   },
 
+  /**
+   * Every published project as a card, in listing order, with all its
+   * technologies and tags — the static export's search/filter index.
+   */
+  listPublishedIndex() {
+    const db = getDb();
+    const rows = db.prepare(`
+      SELECT p.id, p.slug, p.title, p.short_description,
+             p.thumbnail_path, p.is_featured, p.display_order,
+             p.published_at, p.github_url, p.demo_url,
+             p.project_status, p.started_on, p.completed_on,
+             c.name AS category, c.slug AS category_slug
+      FROM projects p
+      LEFT JOIN categories c ON c.id = p.category_id
+      WHERE p.status = 'published'
+      ORDER BY p.display_order ASC, p.published_at DESC
+    `).all();
+    const tech = db.prepare(`
+      SELECT t.name FROM technologies t JOIN project_technologies pt ON pt.technology_id = t.id
+      WHERE pt.project_id = ? ORDER BY t.name
+    `);
+    const tags = db.prepare(`
+      SELECT tg.name FROM tags tg JOIN project_tags ptg ON ptg.tag_id = tg.id
+      WHERE ptg.project_id = ? ORDER BY tg.name
+    `);
+    for (const row of rows) {
+      row.technologies = tech.all(row.id);
+      row.tags = tags.all(row.id);
+    }
+    return rows;
+  },
+
   /** Featured projects for the homepage */
   listFeatured(limit = 6) {
     const db = getDb();

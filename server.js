@@ -14,10 +14,10 @@ const helmet      = require('helmet');
 const compression = require('compression');
 const cookieParser = require('cookie-parser');
 
-const { generateSitemap, buildHead, personJsonLd, projectJsonLd } = require('./utils/seo');
-const { renderPage, siteContext } = require('./utils/render');
+const { generateSitemap } = require('./utils/seo');
+const { siteContext }     = require('./utils/render');
+const { homePage, projectsPage, projectPage } = require('./utils/pages');
 const { UPLOAD_ROOT, resolveUploadPath } = require('./utils/uploads');
-const Project             = require('./models/Project');
 const { getDb }           = require('./config/db');
 const { errorHandler }    = require('./middleware/errorHandler');
 const { apiLimiter }      = require('./middleware/rateLimit');
@@ -92,67 +92,22 @@ app.use('/api/admin/upload', uploadRoutes);
 
 // ── Page routes ────────────────────────────────────────────────
 // Public pages are templates in views/, filled with live settings and
-// SEO tags on every request (see utils/render.js).
+// SEO tags on every request (see utils/pages.js — shared with the static export).
 const PUBLIC_DIR = path.join(__dirname, 'public');
 const SITE_URL   = env.SITE_URL || `http://localhost:${env.PORT}`;
 
-function seoDefaults(ctx) {
-  return {
-    description: ctx['site.description'] || ctx['site.tagline'] || '',
-    image:       ctx['og.image'] || '/assets/img/og-default.png',
-    twitter:     ctx['twitter.handle'] || '',
-  };
-}
-
 app.get('/', (req, res, next) => {
-  try {
-    const ctx = siteContext();
-    const head = buildHead({
-      ...seoDefaults(ctx),
-      title:  ctx['site.title'] || ctx['site.name'],
-      path:   '/',
-      jsonLd: personJsonLd(ctx, SITE_URL),
-    }, SITE_URL);
-    res.send(renderPage('index.html', { 'seo.head': head }));
-  } catch (err) { next(err); }
+  try { res.send(homePage(SITE_URL)); } catch (err) { next(err); }
 });
 
 app.get('/projects', (req, res, next) => {
-  try {
-    const ctx = siteContext();
-    const head = buildHead({
-      ...seoDefaults(ctx),
-      title:       `Projects | ${ctx['site.name']}`,
-      description: `AI, machine learning, data science and engineering projects by ${ctx['site.name']}.`,
-      path:        '/projects',
-    }, SITE_URL);
-    res.send(renderPage('projects.html', { 'seo.head': head }));
-  } catch (err) { next(err); }
+  try { res.send(projectsPage(SITE_URL)); } catch (err) { next(err); }
 });
 
-// The page body is still rendered client-side by project.js; the server
-// fills in the <head> so link previews and search engines see the project.
 app.get('/project/:slug', (req, res, next) => {
   try {
-    const ctx = siteContext();
-    const project = Project.findBySlug(req.params.slug);
-    const head = project
-      ? buildHead({
-        ...seoDefaults(ctx),
-        title:       `${project.title} | ${ctx['site.name']}`,
-        description: project.short_description || '',
-        path:        `/project/${encodeURIComponent(project.slug)}`,
-        image:       project.thumbnail_path || project.banner_path || seoDefaults(ctx).image,
-        type:        'article',
-        jsonLd:      projectJsonLd(project, SITE_URL),
-      }, SITE_URL)
-      : buildHead({
-        ...seoDefaults(ctx),
-        title:   `Project not found | ${ctx['site.name']}`,
-        path:    req.path,
-        noindex: true,
-      }, SITE_URL);
-    res.status(project ? 200 : 404).send(renderPage('project.html', { 'seo.head': head }));
+    const { status, html } = projectPage(req.params.slug, SITE_URL);
+    res.status(status).send(html);
   } catch (err) { next(err); }
 });
 

@@ -72,10 +72,14 @@
   }
 
   // ---- Active nav link highlighting based on current path ----
-  const currentPath = window.location.pathname;
+  // Compare paths without the GitHub Pages base ("/Portfolio") or a trailing slash
+  const base = document.querySelector('meta[name="site-base"]')?.content || '';
+  const strip = (p) => (p.startsWith(base) ? p.slice(base.length) : p).replace(/(.)\/$/, '$1') || '/';
+  const currentPath = strip(window.location.pathname);
   document.querySelectorAll('.nav__link, .mobile-menu__link').forEach((link) => {
-    const href = link.getAttribute('href');
-    if (!href) return;
+    const rawHref = link.getAttribute('href');
+    if (!rawHref) return;
+    const href = strip(rawHref);
     const isHome = href === '/' && currentPath === '/';
     // Project detail pages (/project/…) belong under "Projects"
     const isMatch = href !== '/' && (currentPath.startsWith(href) || (href === '/projects' && currentPath.startsWith('/project/')));

@@ -76,6 +76,9 @@ function siteContext() {
     'has.research':   jsonLength('research.items') || settings['research.intro'] ? '1' : '',
     'has.background': count('education') + count('experience') ? '1' : '',
     year: String(new Date().getFullYear()),
+    // Overridden by scripts/export.js for the static GitHub Pages build
+    'site.base': '',
+    'site.mode': 'server',
   };
 }
 

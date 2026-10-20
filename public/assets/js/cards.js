@@ -5,6 +5,7 @@
 //
 // window.Portfolio:
 //   esc(str)              HTML-escape DB text
+//   url('/projects')      site path with the base path prepended
 //   formatMonth('2026-03') → "Mar 2026"
 //   statusLabel(p)        "Completed · Mar 2026" / "Ongoing" / "Planned"
 //   statusBadge(p)        badge HTML for a project's status
@@ -20,7 +21,11 @@
       .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
   }
 
-  const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  // Site path → URL, adding the base path on GitHub Pages ("/Portfolio")
+  const BASE = document.querySelector('meta[name="site-base"]')?.content || '';
+  const url = (path) => BASE + path;
+
+  const MONTHS =['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
   function formatMonth(ym) {
     const m = /^(\d{4})-(\d{2})$/.exec(ym || '');
     return m ? `${MONTHS[+m[2] - 1]} ${m[1]}` : '';
@@ -49,7 +54,7 @@
       : `<div class="project-card__thumb-placeholder"><svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.5"><circle cx="12" cy="12" r="9"/><path d="M9 12l2 2 4-4"/></svg></div>`;
 
     return `
-      <a href="/project/${esc(p.slug)}" class="card card--hover project-card"${reveal ? ' data-reveal' : ''}>
+      <a href="${esc(url(`/project/${p.slug}/`))}" class="card card--hover project-card"${reveal ? ' data-reveal' : ''}>
         <div class="project-card__thumb">
           ${thumb}
           ${p.category ? `<span class="project-card__category">${esc(p.category)}</span>` : ''}
@@ -67,5 +72,5 @@
     `;
   }
 
-  window.Portfolio = { esc, formatMonth, statusLabel, statusBadge, projectCard };
+  window.Portfolio = { esc, url, formatMonth, statusLabel, statusBadge, projectCard };
 })();

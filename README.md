@@ -37,7 +37,7 @@ validation, HTML sanitising, Helmet security headers.
 - **Frontend:** HTML5, CSS3 (design-token system, light/dark theme), vanilla JS
 - **Backend:** Node.js 24, Express
 - **Database:** SQLite (`better-sqlite3`)
-- **Deployment:** Render (see [DEPLOY.md](DEPLOY.md))
+- **Hosting:** GitHub Pages, as a static export (see [DEPLOY.md](DEPLOY.md))
 
 ## Local setup
 
@@ -49,6 +49,17 @@ npm run seed                # admin login + default content (safe to re-run)
 npm run dev                 # http://localhost:3000, admin at /admin/login
 ```
 
+## Publishing
+
+The live site is a static build on GitHub Pages — **https://kanishk2705.github.io/Portfolio/**.
+Edit content locally, then:
+
+```bash
+npm run deploy              # build dist/ and push it to the gh-pages branch
+```
+
+Full guide, backups and custom domain: [DEPLOY.md](DEPLOY.md).
+
 ## Project structure
 
 - `views/` — public page templates, filled with live settings + SEO on the server
@@ -56,13 +67,15 @@ npm run dev                 # http://localhost:3000, admin at /admin/login
 - `public/` — static assets (CSS, JS, images) and the admin pages
 - `routes/` + `controllers/` + `models/` — backend API, organised by resource
 - `middleware/` — auth, CSRF, validation, uploads, rate limiting
-- `utils/` — template renderer, SEO helpers, upload-file helpers, sanitiser
+- `utils/` — page builders, template renderer, SEO helpers, GitHub import, upload helpers, sanitiser
+- `scripts/` — `export.js` (static build to `dist/`) and `deploy.js` (push to GitHub Pages)
 - `database/` — schema, migrations (applied automatically on startup) and seed data
 - `uploads/` — uploaded media (git-ignored; set `UPLOADS_PATH` to move it)
 
 ### Adding a public page
 
 1. Create `views/<page>.html` using `{{> head }}`, `{{> nav }}` and `{{> footer }}`.
-2. Add a route in `server.js` that calls `renderPage('<page>.html', { 'seo.head': buildHead(...) })`.
+2. Add a builder in `utils/pages.js`, a route in `server.js` that calls it, and a
+   `writePage(...)` line in `scripts/export.js` so the static build includes it.
 
 Template syntax is documented at the top of `utils/render.js`.

@@ -26,7 +26,7 @@ function generateSitemap(db, siteUrl) {
   // Static pages
   const staticPages = [
     { url: '/',         changefreq: 'weekly',  priority: '1.0' },
-    { url: '/projects', changefreq: 'weekly',  priority: '0.9' },
+    { url: '/projects/', changefreq: 'weekly',  priority: '0.9' },
   ];
 
   // All published projects
@@ -51,7 +51,7 @@ function generateSitemap(db, siteUrl) {
       const lastmod = (p.updated_at || p.published_at || now).split('T')[0];
       return `
   <url>
-    <loc>${xmlEscape(`${base}/project/${p.slug}`)}</loc>
+    <loc>${xmlEscape(`${base}/project/${p.slug}/`)}</loc>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
     <lastmod>${xmlEscape(lastmod)}</lastmod>
@@ -76,7 +76,7 @@ function projectJsonLd(project, siteUrl) {
     '@type': 'SoftwareApplication',
     name: project.title,
     description: project.short_description,
-    url: `${base}/project/${project.slug}`,
+    url: `${base}/project/${project.slug}/`,
     applicationCategory: 'ArtificialIntelligence',
     ...(project.thumbnail_path ? { image: `${base}${project.thumbnail_path}` } : {}),
     ...(project.github_url ? { codeRepository: project.github_url } : {}),

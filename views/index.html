@@ -23,7 +23,7 @@
         <h1 class="hero__headline" data-reveal>{{ hero.headline | highlight }}</h1>
         <p class="hero__subheadline" data-reveal data-reveal-delay="1">{{ hero.subheadline }}</p>
         <div class="hero__actions" data-reveal data-reveal-delay="2">
-          <a href="/projects" class="btn btn--primary btn--lg">{{ hero.cta_primary_label }}</a>
+          <a href="/projects/" class="btn btn--primary btn--lg">{{ hero.cta_primary_label }}</a>
           <a href="{{ hero.cta_secondary_url | attr }}" class="btn btn--secondary btn--lg" {{{ hero.cta_secondary_attrs }}}>{{ hero.cta_secondary_label }}</a>
         </div>
       </div>
@@ -100,7 +100,7 @@
       </div>
 
       <div class="section-cta">
-        <a href="/projects" class="btn btn--secondary btn--lg">View All Projects →</a>
+        <a href="/projects/" class="btn btn--secondary btn--lg">View All Projects →</a>
       </div>
     </div>
   </section>

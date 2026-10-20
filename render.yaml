@@ -5,7 +5,7 @@ services:
     # Persistent disks need a paid instance. On the free plan the SQLite
     # database and every upload are wiped on each deploy/restart.
     plan: starter
-    branch: master
+    branch: main
     # build:db and seed are both safe to re-run: they only add what is missing
     buildCommand: npm install && npm run build:db && npm run seed
     startCommand: npm start
