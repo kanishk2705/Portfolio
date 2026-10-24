@@ -1,0 +1,167 @@
+/* ==========================================================
+   DESIGN TOKENS
+   Light theme is the default (:root). Dark theme overrides
+   live under [data-theme="dark"]. theme.js sets that attribute
+   on <html> before first paint to avoid a flash of wrong theme.
+   ========================================================== */
+
+:root {
+  /* ---- Brand gradients (exact values from the brief) ---- */
+  --primary-from:    #2563eb;
+  --primary-to:      #7c3aed;
+  --secondary-from:  #06b6d4;
+  --secondary-to:    #3b82f6;
+  --accent:          #8b5cf6;
+
+  --gradient-primary:   linear-gradient(135deg, var(--primary-from), var(--primary-to));
+  --gradient-secondary: linear-gradient(135deg, var(--secondary-from), var(--secondary-to));
+  --gradient-radial:    radial-gradient(circle at top right, var(--secondary-from), transparent 60%);
+
+  /* ---- Surfaces ---- */
+  --bg:            #ffffff;
+  --bg-subtle:     #f8fafc;
+  --bg-elevated:   #ffffff;
+  --bg-inverse:    #111827;
+  --bg-overlay:    rgba(17, 24, 39, 0.6);
+
+  /* ---- Text ---- */
+  --text-primary:   #111827;
+  --text-secondary: #4b5563;
+  --text-tertiary:  #9ca3af;
+  --text-inverse:   #ffffff;
+  --text-on-gradient: #ffffff;
+
+  /* ---- Borders ---- */
+  --border:         #e5e7eb;
+  --border-subtle:  #f1f5f9;
+  --border-strong:  #d1d5db;
+
+  /* ---- Status ---- */
+  --success: #10b981;
+  --warning: #f59e0b;
+  --danger:  #ef4444;
+
+  /* ---- Shadows (soft, brand-tinted) ---- */
+  --shadow-sm: 0 1px 2px rgba(17, 24, 39, 0.04);
+  --shadow-md: 0 4px 12px rgba(17, 24, 39, 0.06), 0 1px 3px rgba(17, 24, 39, 0.04);
+  --shadow-lg: 0 12px 32px rgba(37, 99, 235, 0.10), 0 4px 8px rgba(17, 24, 39, 0.04);
+  --shadow-xl: 0 24px 64px rgba(37, 99, 235, 0.14), 0 8px 16px rgba(17, 24, 39, 0.06);
+  --shadow-glow: 0 0 0 1px rgba(124, 58, 237, 0.08), 0 8px 24px rgba(124, 58, 237, 0.12);
+
+  /* ---- Typography ---- */
+  --font-display: 'Plus Jakarta Sans', 'Inter', -apple-system, sans-serif;
+  --font-body:    'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-mono:    'JetBrains Mono', 'SF Mono', Consolas, monospace;
+
+  --text-xs:   0.75rem;
+  --text-sm:   0.875rem;
+  --text-base: 1rem;
+  --text-lg:   1.125rem;
+  --text-xl:   1.25rem;
+  --text-2xl:  1.5rem;
+  --text-3xl:  1.875rem;
+  --text-4xl:  2.25rem;
+  --text-5xl:  3rem;
+  --text-6xl:  3.75rem;
+  --text-7xl:  4.5rem;
+
+  --leading-tight:  1.1;
+  --leading-snug:   1.3;
+  --leading-normal: 1.6;
+  --leading-relaxed: 1.75;
+
+  /* ---- Spacing scale (4px base) ---- */
+  --space-1:  0.25rem;
+  --space-2:  0.5rem;
+  --space-3:  0.75rem;
+  --space-4:  1rem;
+  --space-5:  1.25rem;
+  --space-6:  1.5rem;
+  --space-8:  2rem;
+  --space-10: 2.5rem;
+  --space-12: 3rem;
+  --space-16: 4rem;
+  --space-20: 5rem;
+  --space-24: 6rem;
+  --space-32: 8rem;
+
+  /* ---- Radius ---- */
+  --radius-sm:   8px;
+  --radius-md:   12px;
+  --radius-lg:   16px;
+  --radius-xl:   24px;
+  --radius-full: 9999px;
+
+  /* ---- Layout ---- */
+  --container-max: 1200px;
+  --nav-height: 76px;
+
+  /* ---- Motion ---- */
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+  --duration-fast: 150ms;
+  --duration-base: 280ms;
+  --duration-slow: 500ms;
+}
+
+/* ==========================================================
+   DARK THEME
+   Same brand family, brightened gradients for contrast on a
+   deep navy-black surface (not pure #000 — keeps the gradient
+   glow legible instead of muddy).
+   ========================================================== */
+[data-theme="dark"] {
+  --primary-from:    #3b82f6;
+  --primary-to:      #8b5cf6;
+  --secondary-from:  #22d3ee;
+  --secondary-to:    #60a5fa;
+  --accent:          #a78bfa;
+
+  --bg:            #0a0e16;
+  --bg-subtle:     #0e1420;
+  --bg-elevated:   #131a29;
+  --bg-inverse:    #f8fafc;
+  --bg-overlay:    rgba(5, 8, 14, 0.7);
+
+  --text-primary:   #f3f4f6;
+  --text-secondary: #9ca3af;
+  --text-tertiary:  #6b7280;
+  --text-inverse:   #111827;
+  --text-on-gradient: #ffffff;
+
+  --border:         #1f2937;
+  --border-subtle:  #161d2b;
+  --border-strong:  #2d3748;
+
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
+  --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.4);
+  --shadow-lg: 0 12px 32px rgba(59, 130, 246, 0.18), 0 4px 12px rgba(0, 0, 0, 0.4);
+  --shadow-xl: 0 24px 64px rgba(139, 92, 246, 0.22), 0 8px 24px rgba(0, 0, 0, 0.5);
+  --shadow-glow: 0 0 0 1px rgba(167, 139, 250, 0.15), 0 8px 32px rgba(139, 92, 246, 0.25);
+}
+
+/* Respect OS preference before JS has a chance to set localStorage choice.
+   theme.js overrides this immediately on load if a saved preference exists. */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --primary-from:    #3b82f6;
+    --primary-to:      #8b5cf6;
+    --secondary-from:  #22d3ee;
+    --secondary-to:    #60a5fa;
+    --accent:          #a78bfa;
+    --bg:            #0a0e16;
+    --bg-subtle:     #0e1420;
+    --bg-elevated:   #131a29;
+    --bg-inverse:    #f8fafc;
+    --text-primary:   #f3f4f6;
+    --text-secondary: #9ca3af;
+    --text-tertiary:  #6b7280;
+    --text-inverse:   #111827;
+    --border:         #1f2937;
+    --border-subtle:  #161d2b;
+    --border-strong:  #2d3748;
+    --shadow-lg: 0 12px 32px rgba(59, 130, 246, 0.18), 0 4px 12px rgba(0, 0, 0, 0.4);
+    --shadow-xl: 0 24px 64px rgba(139, 92, 246, 0.22), 0 8px 24px rgba(0, 0, 0, 0.5);
+    --shadow-glow: 0 0 0 1px rgba(167, 139, 250, 0.15), 0 8px 32px rgba(139, 92, 246, 0.25);
+  }
+}
