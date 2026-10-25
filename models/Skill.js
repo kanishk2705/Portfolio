@@ -1,7 +1,38 @@
 // models/Skill.js
 'use strict';
 
+const crypto = require('crypto');
 const { getDb } = require('../config/db');
+
+/** "Distribution Shift" → "distribution-shift", "C++" → "cplusplus", "C#" → "csharp" */
+function labelSlug(name) {
+  const slug = name.toLowerCase()
+    .replace(/\+/g, 'plus').replace(/#/g, 'sharp')
+    .replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+  // Names with no latin letters/digits still need a unique, stable slug
+  return slug || `label-${crypto.createHash('sha1').update(name).digest('hex').slice(0, 8)}`;
+}
+
+/**
+ * Find a tag/technology by slug, so "model evaluation" and "Model Evaluation"
+ * are the same label, or create it. The display name follows the latest
+ * spelling you typed (it is shared by every project using the label).
+ */
+function findOrCreateLabel(table, rawName) {
+  const db = getDb();
+  const name = rawName.trim();
+  const slug = labelSlug(name);
+  const existing = db.prepare(`SELECT * FROM ${table} WHERE slug = ?`).get(slug);
+  if (existing) {
+    if (existing.name !== name) {
+      db.prepare(`UPDATE ${table} SET name = ? WHERE id = ?`).run(name, existing.id);
+      existing.name = name;
+    }
+    return existing;
+  }
+  const result = db.prepare(`INSERT INTO ${table} (name, slug) VALUES (?, ?)`).run(name, slug);
+  return { id: result.lastInsertRowid, name, slug };
+}
 
 const Skill = {
   // ── Skill categories + their skills ───────────────────────
@@ -61,14 +92,7 @@ const Skill = {
   },
 
   findOrCreateTechnology(name) {
-    const db = getDb();
-    const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
-    const existing = db.prepare('SELECT * FROM technologies WHERE name = ?').get(name);
-    if (existing) return existing;
-    const result = db.prepare(
-      'INSERT INTO technologies (name, slug) VALUES (?, ?)'
-    ).run(name, slug);
-    return { id: result.lastInsertRowid, name, slug };
+    return findOrCreateLabel('technologies', name);
   },
 
   // ── Tags ──────────────────────────────────────────────────
@@ -78,14 +102,7 @@ const Skill = {
   },
 
   findOrCreateTag(name) {
-    const db = getDb();
-    const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
-    const existing = db.prepare('SELECT * FROM tags WHERE name = ?').get(name);
-    if (existing) return existing;
-    const result = db.prepare(
-      'INSERT INTO tags (name, slug) VALUES (?, ?)'
-    ).run(name, slug);
-    return { id: result.lastInsertRowid, name, slug };
+    return findOrCreateLabel('tags', name);
   },
 };
 
